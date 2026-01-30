@@ -1,4 +1,6 @@
-if [ $1 = "init" ]; then
+#!/bin/sh
+
+if [ "$1" = "init" ]; then
 
     if [ -f "/tmp/minitwit.db" ]; then 
         echo "Database already exists."
