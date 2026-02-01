@@ -10,10 +10,11 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
-      fhs = pkgs.buildFHSUserEnv {
+      fhs = pkgs.buildFHSEnv {
         name = "minitwit-env";
         targetPkgs = pkgs: with pkgs; [
           sqlite
+          sqlite.dev
           ##Python
           (python312.withPackages (ps: with ps; [
             numpy
