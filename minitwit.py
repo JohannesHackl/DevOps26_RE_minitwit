@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 """
     MiniTwit
     ~~~~~~~~
@@ -19,7 +19,7 @@ from flask import Flask, request, session, url_for, redirect, \
      render_template, abort, g, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 # configuration
-DATABASE = '/tmp/minitwit.db'
+DATABASE = './tmp/minitwit.db'
 PER_PAGE = 30
 DEBUG = True
 SECRET_KEY = 'development key'
