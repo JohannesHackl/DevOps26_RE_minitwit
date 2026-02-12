@@ -9,7 +9,7 @@ if [ "$1" = "build" ]; then
 elif [ "$1" = "run" ]; then 
     if docker images | grep -o ubuntu-go; then
         echo "[INFO] Running ubuntu go developement environment"
-        docker run -it -v ./src:/go/src ubuntu-go  
+        docker run -it -p 8080:8080 -v ./src:/go/src ubuntu-go  
         exit 0
     else
         echo "[ERROR] Image ubuntu-go not found. Run '$0 build' first"

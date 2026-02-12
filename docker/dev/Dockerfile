@@ -25,11 +25,15 @@ RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 RUN printf ' #!/bin/bash\n\
 set -e\n\
 cd $GOPATH/src\n\
+echo "Downloading dependencies..."\n\
+go mod download\n\
 echo "Building minitwit..."\n\
-go install ./...\n\
+go build -o bin/minitwit ./...\n\
 echo "Build complete: Installed in $GOPATH/bin"\n' > /usr/local/bin/gobuild && \
 chmod +x /usr/local/bin/gobuild
 
 WORKDIR $GOPATH/src
+
+EXPOSE 8080
 
 CMD ["/bin/bash"]
