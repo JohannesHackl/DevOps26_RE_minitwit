@@ -69,7 +69,7 @@ func create_app() *gin.Engine {
 	}
 	router.SetFuncMap(funcMap)
 
-	router.LoadHTMLGlob("templates/*")
+	router.LoadHTMLGlob("./templates/*")
 	router.Static("/static", "./static")
 
 	// Routes
