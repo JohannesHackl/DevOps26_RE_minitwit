@@ -1,0 +1,44 @@
+{{ define "header" }}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MiniTwit</title>
+  <link rel="stylesheet" type="text/css" href="/static/style.css">
+</head>
+<body>
+<div class="page">
+  <h1>MiniTwit</h1>
+  <div class="navigation">
+    {{ if .user }}
+    <a href="/static">my timeline</a> |
+    <a href="/public">public timeline</a> |
+    <a href="/logout">sign out [{{ .user.Username }}]</a>
+    {{ else }}
+    <a href="/public">public timeline</a> |
+    <a href="/register">sign up</a> |
+    <a href="/login">sign in</a>
+    {{ end }}
+  </div>
+
+  {{ if .flashes }}
+  <ul class="flashes">
+    {{ range .flashes }}
+    <li>{{ . }}</li>
+    {{ end }}
+  </ul>
+  {{ end }}
+
+  <div class="body">
+    {{ end }}
+
+    {{ define "footer" }}
+  </div>
+
+  <div class="footer">
+    MiniTwit &mdash; A Go Gin Application
+  </div>
+</div>
+</body>
+</html>
+{{ end }}

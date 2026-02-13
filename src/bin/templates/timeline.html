@@ -1,0 +1,52 @@
+{{ template "header" . }}
+
+<h2>
+  {{ if eq .endpoint "public_timeline" }} Public Timeline
+  {{ else if eq .endpoint "user_timeline" }} {{ .profile_user.Username }}'s Timeline
+  {{ else }} My Timeline
+  {{ end }}
+</h2>
+
+{{/* 1. User Actions Section */}}
+{{ if .user }}
+{{ if eq .endpoint "user_timeline" }}
+<div class="followstatus">
+  {{ if eq .user.UserID .profile_user.UserID }}
+  This is you!
+  {{ else if .followed }}
+  You are currently following this user.
+  <a class="unfollow" href="/{{ .profile_user.Username }}/unfollow">Unfollow user</a>.
+  {{ else }}
+  You are not yet following this user.
+  <a class="follow" href="/{{ .profile_user.Username }}/follow">Follow user</a>.
+  {{ end }}
+</div>
+{{ else if eq .endpoint "timeline" }}
+<div class="twitbox">
+  <h3>What's on your mind {{ .user.Username }}?</h3>
+  <form action="/add_message" method="post">
+    <p>
+      <input type="text" name="text" size="60">
+      <input type="submit" value="Share">
+    </p>
+  </form>
+</div>
+{{ end }}
+{{ end }}
+
+{{/* 2. Messages List Section */}}
+<ul class="messages">
+  {{ range .messages }}
+  <li>
+    <img src="{{ gravatar_url .Email 48 }}">
+    <p>
+      <strong><a href="/{{ .Username }}">{{ .Username }}</a></strong>
+      {{ .Text }}
+      <small>&mdash; {{ format_datetime .PubDate }}</small>
+    </p>
+  </li>
+  {{ else }}
+  <li><em>There's no message so far.</em></li>
+  {{ end }}
+</ul>
+{{ template "footer" . }}

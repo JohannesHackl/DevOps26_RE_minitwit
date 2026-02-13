@@ -4,3 +4,7 @@
 .venv
 
 >>>>>>> Stashed changes
+
+.idea/
+
+src/bin/minitwit
