@@ -22,6 +22,7 @@ COPY --from=builder /app/minitwit .
 COPY --from=builder /app/templates/ ./templates/
 COPY --from=builder /app/static/ ./static/
 COPY --from=builder /app/schema.sql .
+COPY --from=builder /app/tmp/minitwit.db .
 
 EXPOSE 8080
 
