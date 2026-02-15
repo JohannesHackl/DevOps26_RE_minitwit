@@ -1,0 +1,19 @@
+# Python stuff - not needed anymore
+minitwit.py
+minitwit.py.bak
+minitwit.pyc
+minitwit_tests.py
+__pycache__
+
+# Git stuff
+.git
+.gitignore
+.DS_Store
+
+# The compiled binary - Docker will build its own
+# C files - not needed in container
+flag_tool
+flag_tool.c
+
+# Docker doesn't need the Dockerfile itself
+Dockerfile

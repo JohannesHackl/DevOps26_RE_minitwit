@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	DATABASE   = "./tmp/minitwit.db"
+	DATABASE   = "/tmp/minitwit.db"
 	PER_PAGE   = 30
 	DEBUG      = true
 	SECRET_KEY = "development key"
