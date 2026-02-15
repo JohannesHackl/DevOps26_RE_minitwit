@@ -18,14 +18,17 @@ import (
 )
 
 const (
-	DATABASE   = "/tmp/minitwit.db"
+	DATABASE   = "./tmp/minitwit.db"
 	PER_PAGE   = 30
 	DEBUG      = true
 	SECRET_KEY = "development key"
 )
 
 func main() {
-	initDB()
+	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
+		initDB()
+	}
+
 	db := connectDB()
 	defer db.Close()
 
@@ -197,7 +200,6 @@ func publicTimeline(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
 	c.HTML(http.StatusOK, "timeline.html", gin.H{
 		"messages": messages,
 		"endpoint": "public_timeline",
@@ -243,7 +245,7 @@ func userTimeline(c *gin.Context) {
 		"followed":    followed,
 		"profileUser": profileUser,
 		"user":        user,
-		"endpoint":    "user_timeline", // add this
+		"endpoint":    "user_timeline",
 	})
 }
 

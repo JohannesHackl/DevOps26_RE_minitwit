@@ -1,6 +1,5 @@
-{{ template "layout.html" . }}
-
-{{ define "title" }}
+<!doctype html>
+<title>
   {{ if eq .endpoint "public_timeline" }}
     Public Timeline
   {{ else if eq .endpoint "user_timeline" }}
@@ -8,54 +7,79 @@
   {{ else }}
     My Timeline
   {{ end }}
-{{ end }}
-
-{{ define "body" }}
-  <h2>
-    {{ if eq .endpoint "public_timeline" }}
-      Public Timeline
-    {{ else if eq .endpoint "user_timeline" }}
-      {{ index .profileUser "username" }}'s Timeline
-    {{ else }}
-      My Timeline
-    {{ end }}
-  </h2>
-
+  | MiniTwit
+</title>
+<link rel=stylesheet type=text/css href="/static/style.css">
+<div class=page>
+  <h1>MiniTwit</h1>
+  <div class=navigation>
   {{ if .user }}
-    {{ if eq .endpoint "user_timeline" }}
-      <div class=followstatus>
-      {{ if eq (index .user "user_id") (index .profileUser "user_id") }}
-        This is you!
-      {{ else if .followed }}
-        You are currently following this user.
-        <a class=unfollow href="/{{ index .profileUser "username" }}/unfollow">Unfollow user</a>.
-      {{ else }}
-        You are not yet following this user.
-        <a class=follow href="/{{ index .profileUser "username" }}/follow">Follow user</a>.
-      {{ end }}
-      </div>
-    {{ else if eq .endpoint "timeline" }}
-      <div class=twitbox>
-        <h3>What's on your mind {{ index .user "username" }}?</h3>
-        <form action="/add_message" method=post>
-          <p><input type=text name=text size=60><!--
-          --><input type=submit value="Share">
-        </form>
-      </div>
-    {{ end }}
-  {{ end }}
-
-  <ul class=messages>
-  {{ if .messages }}
-    {{ range .messages }}
-      <li><img src="{{ gravatar (index . "email") 48 }}"><p>
-        <strong><a href="/{{ index . "username" }}">{{ index . "username" }}</a></strong>
-        {{ index . "text" }}
-        <small>&mdash; {{ datetimeformat (index . "pub_date") }}</small>
-      </li>
-    {{ end }}
+    <a href="/">my timeline</a> |
+    <a href="/public">public timeline</a> |
+    <a href="/logout">sign out [{{ index .user "username" }}]</a>
   {{ else }}
-    <li><em>There's no message so far.</em>
+    <a href="/public">public timeline</a> |
+    <a href="/register">sign up</a> |
+    <a href="/login">sign in</a>
   {{ end }}
-  </ul>
-{{ end }}
+  </div>
+  {{ if .flashes }}
+    <ul class=flashes>
+    {{ range .flashes }}
+      <li>{{ . }}</li>
+    {{ end }}
+    </ul>
+  {{ end }}
+  <div class=body>
+    <h2>
+      {{ if eq .endpoint "public_timeline" }}
+        Public Timeline
+      {{ else if eq .endpoint "user_timeline" }}
+        {{ index .profileUser "username" }}'s Timeline
+      {{ else }}
+        My Timeline
+      {{ end }}
+    </h2>
+
+    {{ if .user }}
+      {{ if eq .endpoint "user_timeline" }}
+        <div class=followstatus>
+        {{ if eq (index .user "user_id") (index .profileUser "user_id") }}
+          This is you!
+        {{ else if .followed }}
+          You are currently following this user.
+          <a class=unfollow href="/{{ index .profileUser "username" }}/unfollow">Unfollow user</a>.
+        {{ else }}
+          You are not yet following this user.
+          <a class=follow href="/{{ index .profileUser "username" }}/follow">Follow user</a>.
+        {{ end }}
+        </div>
+      {{ else if eq .endpoint "timeline" }}
+        <div class=twitbox>
+          <h3>What's on your mind {{ index .user "username" }}?</h3>
+          <form action="/add_message" method=post>
+            <p><input type=text name=text size=60><!--
+            --><input type=submit value="Share">
+          </form>
+        </div>
+      {{ end }}
+    {{ end }}
+
+    <ul class=messages>
+    {{ if .messages }}
+      {{ range .messages }}
+        <li><img src="{{ gravatar (index . "email") 48 }}"><p>
+          <strong><a href="/{{ index . "username" }}">{{ index . "username" }}</a></strong>
+          {{ index . "text" }}
+          <small>&mdash; {{ datetimeformat (index . "pub_date") }}</small>
+        </li>
+      {{ end }}
+    {{ else }}
+      <li><em>There's no message so far.</em>
+    {{ end }}
+    </ul>
+  </div>
+  <div class=footer>
+    MiniTwit &mdash; A Gin Application
+  </div>
+</div>
