@@ -1,0 +1,12 @@
+tmp/
+*.db
+*.pyc
+__pycache__
+.git
+.gitignore
+README.md
+minitwit.py
+minitwit.py.bak
+minitwit_tests.py
+flag_tool
+flag_tool.c
