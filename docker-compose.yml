@@ -1,7 +1,21 @@
 services:
+  # production service - runs the app
   minitwit:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:
       - ./tmp:/tmp
+
+  # development service - for coding and compiling
+  dev:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+    volumes:
+      - .:/go/src        # mounts your code into the container
+      - ./tmp:/tmp       # persists the database
+    stdin_open: true     
+    tty: true            
