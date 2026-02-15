@@ -245,6 +245,5 @@ app.jinja_env.filters['gravatar'] = gravatar_url
 app.secret_key = SECRET_KEY
 app.debug = DEBUG
 
-
 if __name__ == '__main__':
     app.run(host="0.0.0.0")
