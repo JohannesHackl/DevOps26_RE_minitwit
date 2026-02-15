@@ -1,6 +1,4 @@
-<<<<<<< Updated upstream
 .venv/
-=======
-.venv
-
->>>>>>> Stashed changes
+.vscode/
+__pycache__/
+*.pyc

@@ -1,8 +1,17 @@
 init:
-	python -c"from minitwit import init_db; init_db()"
+	./minitwit init
 
 build:
+	go build -o minitwit main.go
+
+build-flag:
 	gcc flag_tool.c -l sqlite3 -o flag_tool
 
 clean:
-	rm flag_tool
+	rm -f minitwit flag_tool
+
+run:
+	go run main.go
+
+test:
+	go test -v ./...
