@@ -112,7 +112,7 @@ func init_db() error {
 
 func get_user_id(username string) (int, error) {
 	var id int
-	query := "SELECT user_id FROM user WHERE username = ?"
+	query := "SELECT user_id FROM users WHERE username = ?"
 	err := db.QueryRow(query, username).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -140,7 +140,7 @@ func before_request(c *gin.Context) {
 
 	if userID != nil {
 		var user User
-		err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM user WHERE user_id = ?", userID).
+		err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE user_id = ?", userID).
 			Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 		if err == nil {
 			c.Set("user", user)
@@ -191,7 +191,7 @@ func public_timeline(c *gin.Context) {
 func user_timeline(c *gin.Context) {
 	username := c.Param("username")
 	var profileUser User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM user WHERE username = ?", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = ?", username).
 		Scan(&profileUser.UserID, &profileUser.Username, &profileUser.Email, &profileUser.PWHash)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -297,7 +297,7 @@ func loginPost(c *gin.Context) {
 	password := c.PostForm("password")
 
 	var user User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM user WHERE username = ?", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = ?", username).
 		Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PWHash), []byte(password)) != nil {
@@ -337,7 +337,7 @@ func registerPost(c *gin.Context) {
 		errorStr = "The two passwords do not match"
 	} else {
 		var existingID int
-		err := db.QueryRow("SELECT user_id FROM user WHERE username = ?", username).Scan(&existingID)
+		err := db.QueryRow("SELECT user_id from users WHERE username = ?", username).Scan(&existingID)
 		if err == nil {
 			errorStr = "The username is already taken"
 		}
