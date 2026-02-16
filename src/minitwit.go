@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-//	"os"
+	//	"os"
 	"strings"
 	"time"
 
@@ -114,7 +114,7 @@ func init_db() error {
 
 func get_user_id(username string) (int, error) {
 	var id int
-	query := "SELECT user_id FROM users WHERE username = ?"
+	query := "SELECT user_id FROM users WHERE username = $1"
 	err := db.QueryRow(query, username).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -142,7 +142,7 @@ func before_request(c *gin.Context) {
 
 	if userID != nil {
 		var user User
-		err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE user_id = ?", userID).
+		err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE user_id = $1", userID).
 			Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 		if err == nil {
 			c.Set("user", user)
@@ -164,9 +164,9 @@ func timeline(c *gin.Context) {
 	query := `
         SELECT message.*, user.* FROM message, user
         WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
-            user.user_id = ? OR
-            user.user_id IN (SELECT whom_id FROM follower WHERE who_id = ?))
-        ORDER BY message.pub_date DESC LIMIT ?`
+            user.user_id = $1 OR
+            user.user_id IN (SELECT whom_id FROM follower WHERE who_id = $2))
+        ORDER BY message.pub_date DESC LIMIT $3`
 
 	messages, _ := queryTimeline(query, user.UserID, user.UserID, PER_PAGE)
 
@@ -180,7 +180,7 @@ func public_timeline(c *gin.Context) {
 	query := `
         SELECT message.*, user.* FROM message, user
         WHERE message.flagged = 0 AND message.author_id = user.user_id
-        ORDER BY message.pub_date DESC LIMIT ?`
+        ORDER BY message.pub_date DESC LIMIT $1`
 
 	messages, _ := queryTimeline(query, PER_PAGE)
 
@@ -193,7 +193,7 @@ func public_timeline(c *gin.Context) {
 func user_timeline(c *gin.Context) {
 	username := c.Param("username")
 	var profileUser User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = ?", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = $1", username).
 		Scan(&profileUser.UserID, &profileUser.Username, &profileUser.Email, &profileUser.PWHash)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -204,14 +204,14 @@ func user_timeline(c *gin.Context) {
 	if val, exists := c.Get("user"); exists {
 		currUser := val.(User)
 		var count int
-		db.QueryRow("SELECT 1 FROM follower WHERE who_id = ? AND whom_id = ?", currUser.UserID, profileUser.UserID).Scan(&count)
+		db.QueryRow("SELECT 1 FROM follower WHERE who_id = $1 AND whom_id = $2", currUser.UserID, profileUser.UserID).Scan(&count)
 		followed = count > 0
 	}
 
 	query := `
         SELECT message.*, user.* FROM message, user 
-        WHERE user.user_id = message.author_id AND user.user_id = ?
-        ORDER BY message.pub_date DESC LIMIT ?`
+        WHERE user.user_id = message.author_id AND user.user_id = $1
+        ORDER BY message.pub_date DESC LIMIT $2`
 
 	messages, _ := queryTimeline(query, profileUser.UserID, PER_PAGE)
 
@@ -238,7 +238,7 @@ func follow_user(c *gin.Context) {
 		return
 	}
 
-	db.Exec("INSERT INTO follower (who_id, whom_id) VALUES (?, ?)", currUser.UserID, whomID)
+	db.Exec("INSERT INTO follower (who_id, whom_id) VALUES ($1, $2)", currUser.UserID, whomID)
 	c.Redirect(http.StatusFound, "/"+username)
 }
 
@@ -257,7 +257,7 @@ func unfollow_user(c *gin.Context) {
 		return
 	}
 
-	db.Exec("DELETE FROM follower WHERE who_id = ? AND whom_id = ?", currUser.UserID, whomID)
+	db.Exec("DELETE FROM follower WHERE who_id = $1 AND whom_id = $2", currUser.UserID, whomID)
 	c.Redirect(http.StatusFound, "/"+username)
 }
 
@@ -271,7 +271,7 @@ func add_message(c *gin.Context) {
 	text := c.PostForm("text")
 
 	if text != "" {
-		_, err := db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
+		_, err := db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES ($1, $2, $3, 0)",
 			user.UserID, text, time.Now().Unix())
 
 		if err == nil {
@@ -299,7 +299,7 @@ func loginPost(c *gin.Context) {
 	password := c.PostForm("password")
 
 	var user User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = ?", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = $1", username).
 		Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PWHash), []byte(password)) != nil {
@@ -339,7 +339,7 @@ func registerPost(c *gin.Context) {
 		errorStr = "The two passwords do not match"
 	} else {
 		var existingID int
-		err := db.QueryRow("SELECT user_id from users WHERE username = ?", username).Scan(&existingID)
+		err := db.QueryRow("SELECT user_id from users WHERE username = $1", username).Scan(&existingID)
 		if err == nil {
 			errorStr = "The username is already taken"
 		}
@@ -351,7 +351,7 @@ func registerPost(c *gin.Context) {
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	db.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)",
+	db.Exec("INSERT INTO user (username, email, pw_hash) VALUES ($1, $2, $3)",
 		username, email, string(hashedPassword))
 
 	c.Redirect(http.StatusFound, "/login")
