@@ -162,13 +162,16 @@ func timeline(c *gin.Context) {
 	user := val.(User)
 
 	query := `
-        SELECT message.*, user.* FROM message, user
-        WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
-            user.user_id = $1 OR
-            user.user_id IN (SELECT whom_id FROM follower WHERE who_id = $2))
+        SELECT message.*, users.* FROM message, users
+        WHERE message.flagged = 0 AND message.author_id = users.user_id AND (
+            users.user_id = $1 OR
+            users.user_id IN (SELECT whom_id FROM follower WHERE who_id = $2))
         ORDER BY message.pub_date DESC LIMIT $3`
 
-	messages, _ := queryTimeline(query, user.UserID, user.UserID, PER_PAGE)
+	messages, err := queryTimeline(query, user.UserID, user.UserID, PER_PAGE)
+	if err != nil {
+		print(err)
+	}
 
 	render(c, http.StatusOK, "timeline.html", gin.H{
 		"messages": messages,
@@ -178,8 +181,8 @@ func timeline(c *gin.Context) {
 
 func public_timeline(c *gin.Context) {
 	query := `
-        SELECT message.*, user.* FROM message, user
-        WHERE message.flagged = 0 AND message.author_id = user.user_id
+        SELECT message.*, users.* FROM message, users
+        WHERE message.flagged = 0 AND message.author_id = users.user_id
         ORDER BY message.pub_date DESC LIMIT $1`
 
 	messages, _ := queryTimeline(query, PER_PAGE)
@@ -209,8 +212,8 @@ func user_timeline(c *gin.Context) {
 	}
 
 	query := `
-        SELECT message.*, user.* FROM message, user 
-        WHERE user.user_id = message.author_id AND user.user_id = $1
+        SELECT message.*, users.* FROM message, users 
+        WHERE users.user_id = message.author_id AND users.user_id = $1
         ORDER BY message.pub_date DESC LIMIT $2`
 
 	messages, _ := queryTimeline(query, profileUser.UserID, PER_PAGE)
@@ -351,8 +354,12 @@ func registerPost(c *gin.Context) {
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	db.Exec("INSERT INTO user (username, email, pw_hash) VALUES ($1, $2, $3)",
+	_, err := db.Exec("INSERT INTO users (username, email, pw_hash) VALUES ($1, $2, $3)",
 		username, email, string(hashedPassword))
+	if err != nil {
+		render(c, http.StatusOK, "register.html", gin.H{"error 404": err})
+		return
+	}
 
 	c.Redirect(http.StatusFound, "/login")
 }
