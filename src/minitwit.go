@@ -92,7 +92,7 @@ func create_app() *gin.Engine {
 }
 
 func connect_db() (*sql.DB, error) {
-	return sql.Open("postgres", "host=192.168.56.10 user=minitwit password=minitwit dbname=minitwit-db sslmode=disable")
+	return sql.Open("postgres", "host=192.168.56.10 user=minitwit password=minitwit dbname=minitwit sslmode=disable")
 }
 
 func init_db() error {
@@ -102,11 +102,13 @@ func init_db() error {
 		return err
 	}
 
-	schema, err := os.ReadFile(SCHEMA)
-	if err != nil {
-		return fmt.Errorf("could not read schema file: %w", err)
-	}
-	_, err = db.Exec(string(schema))
+	/*
+		schema, err := os.ReadFile(SCHEMA)
+		if err != nil {
+			return fmt.Errorf("could not read schema file: %w", err)
+		}
+		_, err = db.Exec(string(schema))
+	*/
 	return err
 }
 
