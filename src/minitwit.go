@@ -13,15 +13,17 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	_ "github.com/glebarez/go-sqlite"
+	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
-const DATABASE string = "./tmp/minitwit.db"
-const SCHEMA string = "schema.sql"
-const PER_PAGE int = 30
-const DEBUG bool = true
-const SECRET_KEY string = "development key"
+const (
+	DATABASE   string = "./tmp/minitwit.db"
+	SCHEMA     string = "schema.sql"
+	PER_PAGE   int    = 30
+	DEBUG      bool   = true
+	SECRET_KEY string = "development key"
+)
 
 var db *sql.DB
 
@@ -90,7 +92,7 @@ func create_app() *gin.Engine {
 }
 
 func connect_db() (*sql.DB, error) {
-	return sql.Open("sqlite", DATABASE)
+	return sql.Open("postgres", "host=192.168.56.10 user=minitwit password=minitwit dbname=minitwit-db sslmode=disable")
 }
 
 func init_db() error {
@@ -112,7 +114,6 @@ func get_user_id(username string) (int, error) {
 	var id int
 	query := "SELECT user_id FROM user WHERE username = ?"
 	err := db.QueryRow(query, username).Scan(&id)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
@@ -192,7 +193,6 @@ func user_timeline(c *gin.Context) {
 	var profileUser User
 	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM user WHERE username = ?", username).
 		Scan(&profileUser.UserID, &profileUser.Username, &profileUser.Email, &profileUser.PWHash)
-
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
