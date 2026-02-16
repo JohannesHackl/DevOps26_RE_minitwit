@@ -8,3 +8,6 @@
 .idea/
 
 src/bin/minitwit
+.vagrant/
+flake.nix
+flake.lock
