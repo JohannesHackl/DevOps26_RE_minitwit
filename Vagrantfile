@@ -34,10 +34,10 @@ Vagrant.configure("2") do |config|
 
       # Create database and user
       sudo -u postgres psql -c "CREATE USER minitwit WITH PASSWORD 'minitwit';"
-      sudo -u postgres psql -c "CREATE DATABASE minitwit-db OWNER minitwit;"
+      sudo -u postgres psql -c "CREATE DATABASE minitwit OWNER minitwit;"
 
       # Load the schema
-      sudo -u postgres psql -d minitwit -f /vagrant/schema_pg.sql
+      sudo -u postgres psql -d minitwit -f /vagrant/src/bin/schema.sql
     SHELL
   end
 
@@ -64,7 +64,7 @@ Vagrant.configure("2") do |config|
       # Build the application
       cd /vagrant/src
       /usr/local/go/bin/go mod download
-      /usr/local/go/bin/go build -o /home/vagrant/minitwit ./...
+      /usr/local/go/bin/go build -o /home/vagrant/src/minitwit ./bin/...
     SHELL
   end
 end
