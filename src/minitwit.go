@@ -77,25 +77,20 @@ func create_app() *gin.Engine {
 		"simulator": "super_safe!",
 	})
 
-	router.GET("/latest", simAuth, get_latest_value)
-
-	msgs := router.Group("/msgs")
-	msgs.Use(simAuth)
+	api := router.Group("/api")
+	api.Use(simAuth)
 	{
-		msgs.GET("", get_messages)
-		msgs.GET("/:username", get_messages_per_user)
-		msgs.POST("/:username", post_messages_per_user)
-	}
-
-	fllws := router.Group("/fllws")
-	fllws.Use(simAuth)
-	{
-		fllws.GET("/:username", get_follow)
-		fllws.POST("/:username", post_follow)
+		api.GET("/latest", get_latest_value)
+		api.POST("/register", post_register)
+		api.GET("/msgs", get_messages)
+		api.GET("/msgs/:username", get_messages_per_user)
+		api.POST("/msgs/:username", post_messages_per_user)
+		api.GET("/fllws/:username", get_follow)
+		api.POST("/fllws/:username", post_follow)
 	}
 
 	router.GET("/register", registerGet)
-	router.POST("/register", registerDispatcher)
+	router.POST("/register", registerPost)
 
 	router.GET("/", timeline)
 	router.GET("/public", public_timeline)
@@ -166,14 +161,6 @@ func before_request(c *gin.Context) {
 }
 
 // Router functions
-
-func registerDispatcher(c *gin.Context) {
-	if c.GetHeader("Content-Type") == "application/json" {
-		post_register(c)
-	} else {
-		registerPost(c)
-	}
-}
 
 func timeline(c *gin.Context) {
 	val, exists := c.Get("user")
