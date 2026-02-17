@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	//	"os"
+	"os"
 	"strings"
 	"time"
 
@@ -112,23 +112,18 @@ func create_app() *gin.Engine {
 }
 
 func connect_db() (*sql.DB, error) {
-	return sql.Open("postgres", "host=192.168.56.10 user=minitwit password=minitwit dbname=minitwit sslmode=disable")
+	host := os.Getenv("DB_ADDR")
+	if host == "" {
+		fmt.Println("WARNING: DB_ADDR environment variable is empty!")
+		host = "localhost"
+	}
+	connStr := fmt.Sprintf("host=%s user=minitwit password=minitwit dbname=minitwit sslmode=disable", host)
+	return sql.Open("postgres", connStr)
 }
 
 func init_db() error {
 	var err error
 	db, err = connect_db()
-	if err != nil {
-		return err
-	}
-
-	/*
-		schema, err := os.ReadFile(SCHEMA)
-		if err != nil {
-			return fmt.Errorf("could not read schema file: %w", err)
-		}
-		_, err = db.Exec(string(schema))
-	*/
 	return err
 }
 
@@ -142,7 +137,6 @@ func get_user_id(username string) (int, error) {
 		}
 		return 0, err
 	}
-
 	return id, nil
 }
 
@@ -162,7 +156,7 @@ func before_request(c *gin.Context) {
 
 	if userID != nil {
 		var user User
-		err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE user_id = $1", userID).
+		err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE user_id = $1", userID).
 			Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 		if err == nil {
 			c.Set("user", user)
@@ -190,15 +184,15 @@ func timeline(c *gin.Context) {
 	user := val.(User)
 
 	query := `
-        SELECT message.*, users.* FROM message, users
-        WHERE message.flagged = 0 AND message.author_id = users.user_id AND (
+        SELECT messages.*, users.* FROM messages, users
+        WHERE messages.flagged = 0 AND messages.author_id = users.user_id AND (
             users.user_id = $1 OR
             users.user_id IN (SELECT whom_id FROM follower WHERE who_id = $2))
-        ORDER BY message.pub_date DESC LIMIT $3`
+        ORDER BY messages.pub_date DESC LIMIT $3`
 
 	messages, err := queryTimeline(query, user.UserID, user.UserID, PER_PAGE)
 	if err != nil {
-		print(err)
+		fmt.Println(err)
 	}
 
 	render(c, http.StatusOK, "timeline.html", gin.H{
@@ -209,9 +203,9 @@ func timeline(c *gin.Context) {
 
 func public_timeline(c *gin.Context) {
 	query := `
-        SELECT message.*, users.* FROM message, users
-        WHERE message.flagged = 0 AND message.author_id = users.user_id
-        ORDER BY message.pub_date DESC LIMIT $1`
+        SELECT messages.*, users.* FROM messages, users
+        WHERE messages.flagged = 0 AND messages.author_id = users.user_id
+        ORDER BY messages.pub_date DESC LIMIT $1`
 
 	messages, _ := queryTimeline(query, PER_PAGE)
 
@@ -224,7 +218,7 @@ func public_timeline(c *gin.Context) {
 func user_timeline(c *gin.Context) {
 	username := c.Param("username")
 	var profileUser User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = $1", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE username = $1", username).
 		Scan(&profileUser.UserID, &profileUser.Username, &profileUser.Email, &profileUser.PWHash)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -240,9 +234,9 @@ func user_timeline(c *gin.Context) {
 	}
 
 	query := `
-        SELECT message.*, users.* FROM message, users 
-        WHERE users.user_id = message.author_id AND users.user_id = $1
-        ORDER BY message.pub_date DESC LIMIT $2`
+        SELECT messages.*, users.* FROM messages, users 
+        WHERE users.user_id = messages.author_id AND users.user_id = $1
+        ORDER BY messages.pub_date DESC LIMIT $2`
 
 	messages, _ := queryTimeline(query, profileUser.UserID, PER_PAGE)
 
@@ -302,7 +296,7 @@ func add_message(c *gin.Context) {
 	text := c.PostForm("text")
 
 	if text != "" {
-		_, err := db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES ($1, $2, $3, 0)",
+		_, err := db.Exec("INSERT INTO messages (author_id, text, pub_date, flagged) VALUES ($1, $2, $3, 0)",
 			user.UserID, text, time.Now().Unix())
 
 		if err == nil {
@@ -330,7 +324,7 @@ func loginPost(c *gin.Context) {
 	password := c.PostForm("password")
 
 	var user User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash from users WHERE username = $1", username).
+	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE username = $1", username).
 		Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
 
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PWHash), []byte(password)) != nil {
@@ -370,7 +364,7 @@ func registerPost(c *gin.Context) {
 		errorStr = "The two passwords do not match"
 	} else {
 		var existingID int
-		err := db.QueryRow("SELECT user_id from users WHERE username = $1", username).Scan(&existingID)
+		err := db.QueryRow("SELECT user_id FROM users WHERE username = $1", username).Scan(&existingID)
 		if err == nil {
 			errorStr = "The username is already taken"
 		}
