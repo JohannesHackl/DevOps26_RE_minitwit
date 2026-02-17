@@ -61,8 +61,14 @@ func main() {
 func create_app() *gin.Engine {
 	router := gin.Default()
 	store := cookie.NewStore([]byte(SECRET_KEY))
+	store.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   3600 * 24,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	})
 	router.Use(sessions.Sessions("mysession", store))
-
 	router.Use(before_request)
 
 	funcMap := template.FuncMap{
