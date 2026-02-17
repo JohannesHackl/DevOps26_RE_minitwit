@@ -11,3 +11,5 @@ src/bin/minitwit
 .vagrant/
 flake.nix
 flake.lock
+
+db_ip.txt
