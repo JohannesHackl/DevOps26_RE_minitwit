@@ -70,11 +70,33 @@ func create_app() *gin.Engine {
 		"format_datetime": format_datetime,
 	}
 	router.SetFuncMap(funcMap)
-
 	router.LoadHTMLGlob("./templates/*")
 	router.Static("/static", "./static")
 
-	// Routes
+	simAuth := gin.BasicAuth(gin.Accounts{
+		"simulator": "super_safe!",
+	})
+
+	router.GET("/latest", simAuth, get_latest_value)
+
+	msgs := router.Group("/msgs")
+	msgs.Use(simAuth)
+	{
+		msgs.GET("", get_messages)
+		msgs.GET("/:username", get_messages_per_user)
+		msgs.POST("/:username", post_messages_per_user)
+	}
+
+	fllws := router.Group("/fllws")
+	fllws.Use(simAuth)
+	{
+		fllws.GET("/:username", get_follow)
+		fllws.POST("/:username", post_follow)
+	}
+
+	router.GET("/register", registerGet)
+	router.POST("/register", registerDispatcher)
+
 	router.GET("/", timeline)
 	router.GET("/public", public_timeline)
 	router.GET("/logout", logout)
@@ -85,8 +107,6 @@ func create_app() *gin.Engine {
 	router.POST("/add_message", add_message)
 	router.GET("/login", loginGet)
 	router.POST("/login", loginPost)
-	router.GET("/register", registerGet)
-	router.POST("/register", registerPost)
 
 	return router
 }
@@ -151,7 +171,15 @@ func before_request(c *gin.Context) {
 	c.Next()
 }
 
-// Rrouter functions
+// Router functions
+
+func registerDispatcher(c *gin.Context) {
+	if c.GetHeader("Content-Type") == "application/json" {
+		post_register(c)
+	} else {
+		registerPost(c)
+	}
+}
 
 func timeline(c *gin.Context) {
 	val, exists := c.Get("user")
