@@ -12,8 +12,8 @@ create table follower (
   whom_id integer
 );
 
-drop table if exists message;
-create table message (
+drop table if exists messages;
+create table messages (
   message_id serial primary key,
   author_id integer not null,
   text text not null,
