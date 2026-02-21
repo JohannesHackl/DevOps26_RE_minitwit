@@ -1,15 +1,35 @@
-<<<<<<< Updated upstream
-.venv/
-=======
-.venv
-
->>>>>>> Stashed changes
-
+# OS & Editor Settings
 .idea/
+.vscode/
+.DS_Store
 
-src/bin/minitwit
+# Virtual Environments
+.venv/
+
+# Infrastructure (Vagrant & Nix)
 .vagrant/
 flake.nix
 flake.lock
 
+# Local Databases & Temp files
+/tmp/*
+!/tmp/*/
+!/tmp/**/*.example
 db_ip.txt
+
+# Go & Gin Framework (Generated)
+# Project specific binary
+minitwit
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out

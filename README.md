@@ -13,12 +13,43 @@ The application is deployed and reachable at the following endpoints:
 
 ---
 
-## 🛠 Deployment Guide
+## 💻 Local Development Quickstart
 
-Infrastructure provisioning and application deployment are automated using **Vagrant** and the **DigitalOcean** provider.
+To get the project running locally for the first time, follow these steps to set up your environment:
 
-### 1. Prerequisites & Secrets
-Before running the deployment, ensure the following environment variables are configured on your host machine:
+### 1. Initialize Local Files
+We use template files to prevent local configuration or binary data from cluttering the version control.
+
+```bash
+# 1. Create your local working database from the template
+cp tmp/minitwit.db.example tmp/minitwit.db
+
+# 2. Create the DB IP configuration file at root 
+# (Set to 127.0.0.1 for local SQLite or your remote DB server IP)
+echo "127.0.0.1" > db_ip.txt
+```
+
+### 2. Run with Docker (Recommended)
+Following modern DevOps practices, we recommend using a single Dockerfile with **multi-stage builds** to handle both development and production.
+
+* **Build image**: `./develop.sh build`
+* **Enter Container**: `./develop.sh run`
+* **Inside the container**: The project root is synced to the container's workspace. You can run `go run main.go` directly.
+
+### 3. Using Makefile (Shortcuts)
+You can use the following commands for quick task execution:
+* `make run`: Starts the Go application locally.
+* `make build`: Compiles the Go binary.
+* `make test-sim`: Runs the Python simulator against your local instance.
+
+---
+
+## 🛠 Cloud Deployment (DigitalOcean)
+
+Infrastructure provisioning and application deployment are automated using **Vagrant** with the DigitalOcean provider.
+
+### 1. Prerequisites
+Ensure the following environment variables are configured on your host machine:
 
 | Variable | Description |
 | :--- | :--- |
@@ -30,62 +61,46 @@ export DIGITAL_OCEAN_TOKEN="your_actual_token_here"
 export SSH_KEY_NAME="your_key_name"
 ```
 
-### 2. One-Command Cloud Deployment
-To provision the VMs (Database and Web servers) and deploy the latest release:
-
+### 2. Provisioning
+To provision the Database and Web servers and deploy the latest code:
 ```bash
-# Clone the repository
-git clone git@github.com:<your_id>/DevOps26_RE_minitwit.git
-cd DevOps26_RE_minitwit
-
-# Provision the cloud infrastructure
 vagrant up --provider=digital_ocean
 ```
-
-> **Note**: If you modify the Go application code later, simply run `vagrant provision webserver` to automatically recompile, kill the old process, and restart the service.
 
 ---
 
 ## 🧪 Testing & Troubleshooting
 
 ### Run Simulator API Tests
-Test the compatibility of your API with the provided Python simulator:
+Test your API compatibility using the provided Python simulator:
 ```bash
-python3 minitwit_simulator.py "http://164.92.186.201:5001/api"
+# Ensure you are at the project root
+python3 test/minitwit_simulator.py "http://localhost:5001/api"
 ```
 
 ### Monitor Webserver Logs
-To view real-time application logs (including `fmt.Printf` debug messages and Gin logs), SSH into the webserver:
+To view real-time application logs, SSH into the webserver:
 ```bash
 vagrant ssh webserver
-
-# View the last few lines and follow real-time output
-tail -f /vagrant/src/bin/minitwit.log
-
-# View the entire log history
-cat /vagrant/src/bin/minitwit.log
+tail -f /var/log/minitwit.log
 ```
-
----
-
-## 💻 Local Development
-
-We provide a pre-configured Docker environment using **Ubuntu 24.04** to ensure toolchain consistency.
-
-### Development Commands
-* `./develop.sh build`: Builds the development Docker image.
-* `./develop.sh run`: Runs the container and opens an interactive terminal.
-
-### Inside the Container
-* `/go/src`: Synced source code directory.
-* `/go/src/bin`: Destination for compiled binaries.
-* **`gobuild`**: A built-in alias to compile the project immediately to the `/bin` folder.
 
 ---
 
 ## 📂 Project Structure
 
-* `/src`: Go source code and core application logic.
-* `/src/bin`: Compiled binaries and `schema.sql`.
-* `/docker`: Dockerfiles for development and production.
-* `Vagrantfile`: Infrastructure as Code (IaC) configuration.
+```text
+.
+├── db/              # Database schema and initialization scripts
+├── docker/          # Dockerfiles (Multi-stage build strategy)
+├── handlers/        # HTTP handlers (Controller logic)
+├── models/          # Data structures and DB models
+├── services/        # Business logic and DB operations
+├── static/          # Static assets (CSS, Images, JS)
+├── templates/       # HTML templates for the Gin framework
+├── test/            # Python simulator and test scenario CSVs
+├── tmp/             # Local DB templates (Real DB and legacy folder are ignored)
+├── main.go          # Application entry point
+├── Makefile         # Shortcuts for common tasks
+└── Vagrantfile      # Infrastructure as Code (IaC) configuration
+```

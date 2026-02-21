@@ -4,14 +4,14 @@
 <head>
   <meta charset="UTF-8">
   <title>MiniTwit</title>
-  <link rel="stylesheet" type="text/css" href="/static/style.css">
+  <link rel="stylesheet" type="text/css" href="/style.css">
 </head>
 <body>
 <div class="page">
   <h1>MiniTwit</h1>
   <div class="navigation">
     {{ if .user }}
-    <a href="/">my timeline</a> |
+    <a href="/static">my timeline</a> |
     <a href="/public">public timeline</a> |
     <a href="/logout">sign out [{{ .user.Username }}]</a>
     {{ else }}
