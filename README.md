@@ -91,16 +91,15 @@ tail -f /var/log/minitwit.log
 
 ```text
 .
-├── db/              # Database schema and initialization scripts
+├── db/              # Database schema and initialization scripts (schema.sql is here)
 ├── docker/          # Dockerfiles (Multi-stage build strategy)
-├── handlers/        # HTTP handlers (Controller logic)
-├── models/          # Data structures and DB models
-├── services/        # Business logic and DB operations
 ├── static/          # Static assets (CSS, Images, JS)
 ├── templates/       # HTML templates for the Gin framework
 ├── test/            # Python simulator and test scenario CSVs
 ├── tmp/             # Local DB templates (Real DB and legacy folder are ignored)
-├── main.go          # Application entry point
+├── simulator_api.go          # Application entry point
+├── minitwit.go          # Application entry point
 ├── Makefile         # Shortcuts for common tasks
 └── Vagrantfile      # Infrastructure as Code (IaC) configuration
+└── develop.sh    # for local developemnt
 ```

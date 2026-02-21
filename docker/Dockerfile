@@ -26,23 +26,28 @@ RUN set -eux; \
     tar -C /usr/local -xzf /tmp/go.tar.gz; \
     rm /tmp/go.tar.gz
 
-# Setup runtime environement
+# Setup Go environment
 ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
-RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+RUN mkdir -p "$GOPATH/bin" && chmod -R 777 "$GOPATH"
+
+# Create /app directory and set permissions for development
+RUN mkdir -p /app && chmod -R 777 /app
 
 # Script for compiling the go project.
-RUN printf ' #!/bin/bash\n\
+RUN printf '#!/bin/bash\n\
 set -e\n\
-cd $GOPATH/src\n\
+cd /app\n\
 echo "Downloading dependencies..."\n\
 go mod download\n\
 echo "Building minitwit..."\n\
-go build -o bin/minitwit ./...\n\
-echo "Build complete: Installed in $GOPATH/bin"\n' > /usr/local/bin/gobuild && \
+go build -o minitwit .\n\
+echo "Build complete."\n' > /usr/local/bin/gobuild && \
 chmod +x /usr/local/bin/gobuild
 
-WORKDIR $GOPATH/src
+# Set the working directory to /app
+WORKDIR /app
+
 
 EXPOSE 5001
 
