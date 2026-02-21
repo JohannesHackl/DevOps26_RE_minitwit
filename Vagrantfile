@@ -36,12 +36,7 @@ Vagrant.configure("2") do |config|
       # Install PostgreSQL
       sudo apt-get update
       sudo apt-get install -y postgresql postgresql-contrib
-
-      # Configure PostgreSQL to listen on all interfaces
-      # By default it only listens on localhost (127.0.0.1)
-      sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" \
-        /etc/postgresql/14/main/postgresql.conf
-
+      sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/14/main/postgresql.conf
       # Allow connections from md5
       # pg_hba.conf controls WHO can connect and HOW they authenticate
       echo "host all all 0.0.0.0/0 md5" | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
@@ -53,7 +48,7 @@ Vagrant.configure("2") do |config|
       sudo -u postgres psql -c "CREATE DATABASE minitwit OWNER minitwit;"
 
       # Load the schema as give permission to minitwit.
-      PGPASSWORD=minitwit psql -h 127.0.0.1 -U minitwit -d minitwit -f /vagrant/src/bin/schema.sql
+      PGPASSWORD=minitwit psql -h 127.0.0.1 -U minitwit -d minitwit -f /vagrant/db/schema.sql
     SHELL
   end
 
@@ -110,46 +105,36 @@ Vagrant.configure("2") do |config|
 
       # Write to persistent path
       echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/go.sh
-      echo 'export GOPATH=/home/vagrant/go' | sudo tee -a /etc/profile.d/go.sh
       source /etc/profile.d/go.sh
 
-      cd /vagrant/src
-      echo "Cleaning old binaries..."
-      rm -rf ./bin/minitwit
+      cd /vagrant
+      mkdir -p log
+      rm -f ./minitwit ./bin/minitwit
 
       # Write DB IP Value to environment variable
       DB_IP_VALUE=$(cat /vagrant/db_ip.txt)
-      echo "export DB_ADDR=$DB_IP_VALUE" | sudo tee /etc/profile.d/db_env.sh
-
       if ! grep -q "DB_ADDR=" /etc/environment; then
         echo "DB_ADDR=$DB_IP_VALUE" | sudo tee -a /etc/environment
-      else
-        sudo sed -i "s|DB_ADDR=.*|DB_ADDR=$DB_IP_VALUE|" /etc/environment
       fi
-
       export DB_ADDR=$DB_IP_VALUE
       echo "Connecting to Database at: $DB_ADDR"
 
       # Build the application
-      cd /vagrant/src
       echo "Downloading Go modules..."
       /usr/local/go/bin/go mod download
 
       echo "Building application..."
-      /usr/local/go/bin/go build -o ./bin/minitwit ./...
+      /usr/local/go/bin/go build -o minitwit .
 
       echo "Stopping any existing minitwit processes..."
       sudo pkill minitwit || true
 
       echo "Starting Minitwit in background..."
-      cd bin
       # Run the app in the background, logging all output and ensuring it persists after logout.
-      nohup ./minitwit > minitwit.log 2>&1 &
+      nohup ./minitwit > tmp/minitwit.log 2>&1 &
 
       echo "=========================================================="
-      echo "Deployment Complete!"
-      THIS_IP=$(curl -s http://checkip.amazonaws.com)
-      echo "Access your app at http://$THIS_IP:5001"
+      echo "Deployment Complete! Access: http://$(curl -s http://checkip.amazonaws.com):5001"
       echo "=========================================================="
     SHELL
   end
