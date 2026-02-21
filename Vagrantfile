@@ -3,10 +3,20 @@
 
 $ip_file = "db_ip.txt"
 
+def find_ssh_key
+  ["~/.ssh/id_rsa", "~/.ssh/id_ed25519", "~/.ssh/id_dsa"].each do |path|
+    full_path = File.expand_path(path)
+    return path if File.exist?(full_path)
+  end
+  "~/.ssh/id_rsa"
+end
+
+ssh_key_path = ENV['SSH_KEY_PATH'] || find_ssh_key
+
 Vagrant.configure("2") do |config|
   config.vm.box = 'digital_ocean'
   config.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
-  config.ssh.private_key_path = '~/.ssh/id_rsa'
+  config.ssh.private_key_path = ssh_key_path
   config.vm.synced_folder ".", "/vagrant", type: "rsync"
 
   # --- Database Server ---
@@ -108,7 +118,7 @@ Vagrant.configure("2") do |config|
       source /etc/profile.d/go.sh
 
       cd /vagrant
-      mkdir -p log
+      mkdir -p tmp
       rm -f ./minitwit ./bin/minitwit
 
       # Write DB IP Value to environment variable
