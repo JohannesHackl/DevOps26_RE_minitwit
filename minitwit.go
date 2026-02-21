@@ -18,10 +18,7 @@ import (
 )
 
 const (
-	DATABASE   string = "./tmp/minitwit.db"
-	SCHEMA     string = "schema.sql"
 	PER_PAGE   int    = 30
-	DEBUG      bool   = true
 	SECRET_KEY string = "development key"
 )
 
