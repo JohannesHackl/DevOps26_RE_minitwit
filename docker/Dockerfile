@@ -29,26 +29,17 @@ RUN set -eux; \
 # Setup Go environment
 ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
-RUN mkdir -p "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
-# Create /app directory and set permissions for development
-RUN mkdir -p /app && chmod -R 777 /app
-
-# Script for compiling the go project.
-RUN printf '#!/bin/bash\n\
-set -e\n\
-cd /app\n\
-echo "Downloading dependencies..."\n\
-go mod download\n\
-echo "Building minitwit..."\n\
-go build -o minitwit .\n\
-echo "Build complete."\n' > /usr/local/bin/gobuild && \
-chmod +x /usr/local/bin/gobuild
-
-# Set the working directory to /app
+# Set working directory
 WORKDIR /app
 
+COPY go.mod go.sum* ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -o minitwit .
 
 EXPOSE 5001
 
-CMD ["/bin/bash"]
+CMD ["./minitwit"]
