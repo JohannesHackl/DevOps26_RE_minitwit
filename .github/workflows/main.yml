@@ -26,6 +26,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: docker/Dockerfile
           push: true
           build-args: GO_VERSION=1.25.0
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
