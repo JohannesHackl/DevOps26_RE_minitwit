@@ -4,8 +4,8 @@ name: MiniTwit CI/CD
 on:
   push:
     branches: [ main ]
-  tag:
-    - 'v*'
+    tags:
+      - 'v*'
 
 jobs:
   # Stage 1: Testing Stage
@@ -33,16 +33,16 @@ jobs:
         with:
           python-version: '3.9'
       - name: Run tests
-        # Execute the local test suite using test.py [cite: 15]
+        # Execute the local test suite using minitwit_simulator.py
         run: |
-          pip install -r requirements.txt
-          python3 test.py
+          pip install requests
+          python3 test/minitwit_simulator.py
 
   # Stage 2: Build and Push to Docker Hub
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    # Only run this job on the main branch
+    # Only run this job on the main branch push event
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        # Connect to Digital Ocean using the SSH private key [cite: 26]
+        # Connect to Digital Ocean using the SSH private key
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DO_HOST }}
@@ -86,8 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - checkout
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
