@@ -76,6 +76,7 @@ Test your API compatibility using the provided Python simulator:
 ```bash
 # Ensure you are at the project root
 python3 test/minitwit_simulator.py "http://localhost:5001/api"
+python3 test/minitwit_simulator.py "http://164.92.186.201:5001/api"
 ```
 
 ### Monitor Webserver Logs
