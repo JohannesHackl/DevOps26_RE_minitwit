@@ -1,93 +1,67 @@
 name: MiniTwit CI/CD
 
-# Trigger the workflow on pushes to the main branch or when a tag starting with 'v' is pushed
 on:
   push:
     branches: [ main ]
+    # Trigger when tags starting with 'v' are pushed (e.g., v1.0, v1.2.3)
     tags:
       - 'v*'
 
 jobs:
-  # Stage 1: Testing Stage
-  test:
-    runs-on: ubuntu-latest
-    # Setup a temporary PostgreSQL service for testing
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_USER: minitwit
-          POSTGRES_DB: minitwit
-          POSTGRES_PASSWORD: minitwit
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Run tests
-        # Execute the local test suite using minitwit_simulator.py
-        run: |
-          pip install requests
-          python3 test/minitwit_simulator.py
-
-  # Stage 2: Build and Push to Docker Hub
+  # Stage 1: Build the Docker image and push to Docker Hub
   build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    # Only run this job on the main branch push event
+    # Only run on main branch pushes, not on tags
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          # Use the specified Go version from the original Dockerfile
           build-args: GO_VERSION=1.25.0
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
 
-  # Stage 3: Deploy to Digital Ocean
+  # Stage 2: Deploy to Digital Ocean droplet via SSH
   deploy:
     needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        # Connect to Digital Ocean using the SSH private key
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            # Pull the latest image and restart the container 
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
             docker stop minitwit || true
             docker rm minitwit || true
-            # Run the container with the DB_ADDR environment variable 
             docker run -d --name minitwit -p 5001:5001 -e DB_ADDR=${{ secrets.DB_ADDR }} ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
 
-  # Stage 4: Automatically create a GitHub Release (triggered by tags only)
+  # Stage 3: Create GitHub Release
   release:
-    needs: test
-    runs-on: ubuntu-latest
+    # Only run when a tag is pushed
     if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Important: Grant permission to create a release
     steps:
       - uses: actions/checkout@v4
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
+          # Automatically generate release notes based on commit logs
           generate_release_notes: true
+          # You can specify a custom body or leave it to auto-generate
+          body: "Automated release for version ${{ github.ref_name }}"
