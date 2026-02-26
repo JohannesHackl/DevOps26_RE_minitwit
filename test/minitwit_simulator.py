@@ -19,7 +19,7 @@ from contextlib import closing
 import sqlite3
 
 
-CSV_FILENAME = "./minitwit_scenario.csv"
+CSV_FILENAME = "./test/minitwit_scenario.csv"
 USERNAME = "simulator"
 PWD = "super_safe!"
 CREDENTIALS = ":".join([USERNAME, PWD]).encode("ascii")
