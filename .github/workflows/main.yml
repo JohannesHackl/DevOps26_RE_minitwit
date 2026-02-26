@@ -8,9 +8,17 @@ on:
       - 'v*'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: docker compose -f docker-compose-tests.yaml up --abort-on-container-exit --exit-code-from test
   # Stage 1: Build the Docker image and push to Docker Hub
   build-and-push:
     # Only run on main branch pushes, not on tags
+    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
