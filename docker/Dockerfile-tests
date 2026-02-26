@@ -54,5 +54,3 @@ EXPOSE 5001
 
 
 CMD ["./minitwit"]
-
-RUN python3 ./test/minitwit_simulator.py 5001
