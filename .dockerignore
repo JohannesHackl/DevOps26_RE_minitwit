@@ -1,0 +1,15 @@
+.git
+.gitignore
+.github
+.dockerignore
+docker-compose*.yaml
+Vagrantfile
+develop.sh
+README.md
+db_ip.txt
+*.db
+tmp/
+.env
+.env.local
+vendor/
+node_modules/
