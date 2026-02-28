@@ -1,0 +1,63 @@
+name: Provision Infrastructure
+
+on:
+  workflow_dispatch:  # manual trigger only
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-25.05
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITAL_OCEAN_TOKEN }}
+          TF_VAR_ssh_key_id: ${{ secrets.DO_SSH_KEY_ID }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITAL_OCEAN_TOKEN }}
+          TF_VAR_ssh_key_id: ${{ secrets.DO_SSH_KEY_ID }}
+
+      - name: Get IPs from Terraform
+        run: |
+          echo "DB_IP=$(terraform output -raw db_private_ip)" >> $GITHUB_ENV
+          echo "WEB_IP=$(terraform output -raw web_public_ip)" >> $GITHUB_ENV
+        working-directory: ./terraform
+
+      - name: Add hosts to known_hosts
+        run: |
+          ssh-keyscan ${{ env.WEB_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ env.DB_IP }} >> ~/.ssh/known_hosts
+
+      - name: Provision DB server with nixos-anywhere
+        run: |
+          nix run github:nix-community/nixos-anywhere -- \
+            --flake .#minitweet-db \
+            root@${{ env.DB_IP }}
+
+      - name: Provision Web server with nixos-anywhere
+        run: |
+          nix run github:nix-community/nixos-anywhere -- \
+            --flake .#minitweet-api \
+            root@${{ env.WEB_IP }}

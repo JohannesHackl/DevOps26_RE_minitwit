@@ -1,0 +1,59 @@
+name: Deploy Minitwit
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          nix_path: nixpkgs=channel:nixos-25.05
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITAL_OCEAN_TOKEN }}
+          TF_VAR_ssh_key_id: ${{ secrets.DO_SSH_KEY_ID }}
+
+      - name: Get IPs from Terraform state
+        run: |
+          echo "DB_IP=$(terraform output -raw db_private_ip)" >> $GITHUB_ENV
+          echo "WEB_IP=$(terraform output -raw web_public_ip)" >> $GITHUB_ENV
+        working-directory: ./terraform
+
+      - name: Add hosts to known_hosts
+        run: |
+          ssh-keyscan ${{ env.WEB_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ env.DB_IP }} >> ~/.ssh/known_hosts
+
+      - name: Build NixOS configurations
+        run: |
+          nixos-rebuild build --flake .#minitweet-db
+          nixos-rebuild build --flake .#minitweet-api
+
+      - name: Deploy with deploy-rs
+        run: |
+          nix run github:serokell/deploy-rs -- \
+            --skip-checks \
+            .#minitweet-db \
+            .#minitweet-api
+        env:
+          DB_ADDR: ${{ env.DB_IP }}
