@@ -63,8 +63,8 @@ func create_app() *gin.Engine {
 		MaxAge:   3600 * 24,
 		HttpOnly: true,
 		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
 	})
+
 	router.Use(sessions.Sessions("mysession", store))
 	router.Use(before_request)
 
@@ -73,8 +73,12 @@ func create_app() *gin.Engine {
 		"format_datetime": format_datetime,
 	}
 	router.SetFuncMap(funcMap)
-	router.LoadHTMLGlob("./templates/*")
-	router.Static("/static", "./static")
+
+	templatePath := os.Getenv("TEMPLATES_PATH")
+	router.LoadHTMLGlob(templatePath + "/*")
+
+	staticPath := os.Getenv("STATIC_PATH")
+	router.Static("/static", staticPath)
 
 	simAuth := gin.BasicAuth(gin.Accounts{
 		"simulator": "super_safe!",
