@@ -44,8 +44,9 @@ Vagrant.configure("2") do |config|
       export DEBIAN_FRONTEND=noninteractive
 
       echo "Updating system packages..."
-      sudo apt-get update
-      sudo apt-get upgrade -y
+      #sudo apt-get update
+      #sudo apt-get upgrade -y
+      sudo apt-get update -qq
 
       echo "Installing Docker..."
       sudo apt-get install -y \
