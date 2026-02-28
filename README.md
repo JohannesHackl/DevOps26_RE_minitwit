@@ -88,6 +88,16 @@ tail -f /var/log/minitwit.log
 
 ---
 
+## 🏗 Design Decisions
+
+### Language: Go
+We chose Go for its simplicity, strong standard library, and excellent performance for web services. Its built-in concurrency model (goroutines), fast compile times, and single-binary output make it well-suited for a containerized, cloud-deployed application like MiniTwit.
+
+### Infrastructure: Two VMs (App + DB)
+We separate the web server and database into two distinct VMs following standard practice. The main benefit is independent scalability: if the app server becomes a bottleneck, we can scale it horizontally without touching the database, and vice versa. This also follows the structure of the provided example Vagrantfile from the course.
+
+---
+
 ## 📂 Project Structure
 
 ```text
