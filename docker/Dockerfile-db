@@ -1,0 +1,9 @@
+FROM postgres:14
+
+# No additional customization needed - this extends the official PostgreSQL image
+# The schema initialization is handled via docker-compose volume mount:
+# volumes:
+#   - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+#
+# This Dockerfile allows for future customization (e.g., custom PostgreSQL config)
+# while keeping the database decoupled from the app
