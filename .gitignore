@@ -7,6 +7,7 @@
 .venv/
 
 result/
+result
 
 # Infrastructure (Vagrant & Nix)
 .vagrant/
