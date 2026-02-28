@@ -6,6 +6,8 @@
 # Virtual Environments
 .venv/
 
+result/
+
 # Infrastructure (Vagrant & Nix)
 .vagrant/
 
