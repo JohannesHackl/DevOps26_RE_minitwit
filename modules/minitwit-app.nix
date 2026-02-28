@@ -37,7 +37,7 @@ in
       "L /var/lib/minitwit/static - - - - ${minitwit}/share/minitwit/static"
     ];
 
-    users.users.mintwit = {
+    users.users.minitwit = {
       isSystemUser = true;
       group = "minitwit";
     };
