@@ -8,8 +8,6 @@
 
 # Infrastructure (Vagrant & Nix)
 .vagrant/
-flake.nix
-flake.lock
 
 # Local Databases & Temp files
 /tmp/*
