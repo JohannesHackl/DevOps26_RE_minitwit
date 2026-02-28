@@ -5,11 +5,11 @@ let
     version = "latest";
     src = ../.;
     vendorHash = "sha256-zVj7biULqStZsrAe3xLNkOOX3ol/RLMUitmd2YujSLM=";
-    ###    postInstall = ''
-    ###      mkdir -p $out/share/minitwit
-    ###      cp -r templates $out/share/minitwit/templates
-    ###      cp -r static $out/share/minitwit/static
-    ###    '';
+    postInstall = ''
+      mkdir -p $out/share/minitwit
+      cp -r templates $out/share/minitwit/templates
+      cp -r static $out/share/minitwit/static
+    '';
   };
 in
 {
