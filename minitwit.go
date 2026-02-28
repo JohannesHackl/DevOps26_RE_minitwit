@@ -81,6 +81,7 @@ func create_app() *gin.Engine {
 	router.SetFuncMap(funcMap)
 	router.LoadHTMLGlob("./templates/*")
 	router.Static("/static", "./static")
+	router.StaticFile("/favicon.ico", "./static/favicon.ico")
 
 	simAuth := gin.BasicAuth(gin.Accounts{
 		"simulator": "super_safe!",
