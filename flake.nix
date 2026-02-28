@@ -21,7 +21,7 @@
           system = "x86_64-linux";
           modules = [
             ./nix-hosts/app/configuration.nix
-            ./modules/minitweet-app.nix
+            ./modules/minitwit-app.nix
           ];
         };
       };

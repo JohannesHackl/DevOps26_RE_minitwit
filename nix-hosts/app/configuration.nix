@@ -6,7 +6,7 @@
     ./hardware-configuration.nix
   ];
 
-  services.minitwit-app.dbAddr = "164.92.186.201";
+  services.minitwit.dbAddr = "164.92.186.201";
 
   networking.hostName = "minitwit-app";
 
