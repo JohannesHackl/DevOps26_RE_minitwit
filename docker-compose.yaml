@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: minitwit
+      POSTGRES_PASSWORD: minitwit
+      POSTGRES_DB: minitwit
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minitwit"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        GO_VERSION: "1.25.0"
+    environment:
+      DB_ADDR: db
+    ports:
+      - "5001:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
