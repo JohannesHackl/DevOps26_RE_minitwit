@@ -12,7 +12,7 @@
         minitweet-db = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
-            ./hosts/minitweet-db/configuration.nix
+            ./nix-hosts/db/configuration.nix
             ./modules/postgres.nix
           ];
         };
@@ -20,7 +20,7 @@
         minitweet-api = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
-            ./hosts/minitweet-api/configuration.nix
+            ./nix-hosts/app/configuration.nix
             ./modules/minitweet-app.nix
           ];
         };
