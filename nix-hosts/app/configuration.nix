@@ -1,7 +1,10 @@
 { config, pkgs, ... }:
 {
 
-  imports = ../../modules/minitwit-app.nix;
+  imports = [
+    ../../modules/minitwit-app.nix
+    ./hardware-configuration.nix
+  ];
 
   services.minitwit-app.dbAddr = "164.92.186.201";
 
