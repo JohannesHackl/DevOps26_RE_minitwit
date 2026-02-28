@@ -1,0 +1,24 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+
+      - name: Build NixOS configs
+        run: |
+          nix build .#nixosConfigurations.minitwit-web.config.system.build.toplevel
+          nix build .#nixosConfigurations.minitwit-db.config.system.build.toplevel
+
+      - name: Deploy with deploy-rs
+        run: nix run github:serokell/deploy-rs -- .#minitwit-web .#minitwit-db
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
