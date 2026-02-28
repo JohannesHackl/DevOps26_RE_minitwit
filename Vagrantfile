@@ -43,33 +43,8 @@ Vagrant.configure("2") do |config|
     db.vm.provision "shell", inline: <<-SHELL
       export DEBIAN_FRONTEND=noninteractive
 
-      echo "Updating system packages..."
-      #sudo apt-get update
-      #sudo apt-get upgrade -y
-      sudo apt-get update -qq
-
-      echo "Installing Docker..."
-      sudo apt-get install -y \
-        apt-transport-https \
-        ca-certificates \
-        curl \
-        gnupg \
-        lsb-release
-
-      # Add Docker GPG key
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-      # Add Docker repository
-      echo \
-        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-      sudo apt-get update
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-      echo "Installing Docker Compose..."
-      sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-      sudo chmod +x /usr/local/bin/docker-compose
+      echo "Installing Docker (fast method)..."
+      curl -fsSL https://get.docker.com | sudo sh
 
       echo "Starting Docker service..."
       sudo systemctl start docker
@@ -79,7 +54,7 @@ Vagrant.configure("2") do |config|
       mkdir -p tmp
 
       echo "Starting PostgreSQL container..."
-      sudo /usr/local/bin/docker-compose -f docker-compose-db.yaml up -d
+      sudo docker compose -f docker-compose-db.yaml up -d
 
       echo "=========================================================="
       echo "Database Server Ready!"
@@ -115,32 +90,22 @@ Vagrant.configure("2") do |config|
     web.vm.provision "shell", inline: <<-SHELL
       export DEBIAN_FRONTEND=noninteractive
 
-      echo "Updating system packages..."
-      sudo apt-get update
-      sudo apt-get upgrade -y
+      # Wait for cloud-init to finish (prevents apt locks)
+      echo "Waiting for system to be ready..."
+      cloud-init status --wait || true
 
-      echo "Installing Docker..."
-      sudo apt-get install -y \
-        apt-transport-https \
-        ca-certificates \
-        curl \
-        gnupg \
-        lsb-release
+      # Create swap for building (prevents OOM during docker build)
+      if [ ! -f "/swapfile" ]; then
+        echo "Creating 2GB swap file..."
+        sudo fallocate -l 2G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+      fi
 
-      # Add Docker GPG key
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-      # Add Docker repository
-      echo \
-        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-      sudo apt-get update
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-      echo "Installing Docker Compose..."
-      sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-      sudo chmod +x /usr/local/bin/docker-compose
+      echo "Installing Docker (fast method)..."
+      curl -fsSL https://get.docker.com | sudo sh
 
       echo "Starting Docker service..."
       sudo systemctl start docker
@@ -153,8 +118,8 @@ Vagrant.configure("2") do |config|
       DB_IP=$(cat /vagrant/db_ip.txt)
       echo "Connecting to database at: $DB_IP"
 
-      echo "Starting Go application container..."
-      DB_ADDR=$DB_IP sudo /usr/local/bin/docker-compose -f docker-compose-app.yaml up -d
+      echo "Building and starting Go application container..."
+      DB_ADDR=$DB_IP sudo docker compose -f docker-compose-app.yaml up -d --build
 
       echo "=========================================================="
       echo "Deployment Complete!"
@@ -162,7 +127,7 @@ Vagrant.configure("2") do |config|
       echo "Database: $DB_IP:5432"
       echo "=========================================================="
       echo ""
-      echo "To view logs: docker-compose -f docker-compose-app.yaml logs -f"
+      echo "To view logs: docker compose -f docker-compose-app.yaml logs -f"
     SHELL
   end
 end
