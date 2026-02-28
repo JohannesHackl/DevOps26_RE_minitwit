@@ -15,5 +15,12 @@
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJrmlWbyrXyqEI8nP/N31d1yfT314rk3Jr7DS47f6Q27 desktop ssh"
   ];
 
+  users.users.root.password = "123";
+  virtualisation.vmVariant = {
+    virtualisation.forwardPorts = [
+      { from = "host"; host.port = 2222; guest.port = 22; }
+    ];
+  };
+
   system.stateVersion = "25.05";
 }
