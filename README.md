@@ -44,7 +44,39 @@ You can use the following commands for quick task execution:
 
 ---
 
-## 🛠 Cloud Deployment (DigitalOcean)
+## � Docker Architecture
+
+The project uses a **decoupled Docker setup** with three separate Dockerfiles and dedicated Docker Compose configurations:
+
+### Dockerfiles
+
+| File | Purpose | Used By |
+| :--- | :--- | :--- |
+| **Dockerfile-app** | Production Go application container | docker-compose-app.yaml (webserver) |
+| **Dockerfile-db** | PostgreSQL database container | docker-compose-db.yaml (dbserver) |
+| **Dockerfile-test** | Testing environment (Go + Python) | docker-compose-tests.yaml (local testing) |
+
+### Docker Compose Files
+
+- **docker-compose-db.yaml**: Database server only (persistent volume for data)
+- **docker-compose-app.yaml**: Application server with remote database connectivity
+- **docker-compose-tests.yaml**: Full stack (db + app + test runner) for local development
+
+### Local Testing (All-in-One)
+
+For local development, run the complete stack:
+```bash
+docker-compose -f docker-compose-tests.yaml up --build
+```
+
+This starts:
+- PostgreSQL database container
+- Go application container
+- Python test simulator container
+
+---
+
+## �🛠 Cloud Deployment (DigitalOcean)
 
 Infrastructure provisioning and application deployment are automated using **Vagrant** with the DigitalOcean provider.
 

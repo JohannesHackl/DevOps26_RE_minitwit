@@ -19,16 +19,16 @@ Vagrant.configure("2") do |config|
   config.ssh.private_key_path = ssh_key_path
   config.vm.synced_folder ".", "/vagrant", type: "rsync"
 
-  # --- Database Server ---
+  # --- Database Server with Docker ---
   config.vm.define "dbserver" do |db|
-      db.vm.provider :digital_ocean do |provider|
-        provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-        provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
-        provider.image = 'ubuntu-22-04-x64'
-        provider.region = 'fra1'
-        provider.size = 's-1vcpu-1gb'
-        provider.privatenetworking = true
-      end
+    db.vm.provider :digital_ocean do |provider|
+      provider.ssh_key_name = ENV["SSH_KEY_NAME"]
+      provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
+      provider.image = 'ubuntu-22-04-x64'
+      provider.region = 'fra1'
+      provider.size = 's-1vcpu-1gb'
+      provider.privatenetworking = true
+    end
 
     db.vm.hostname = "dbserver"
 
@@ -43,109 +43,125 @@ Vagrant.configure("2") do |config|
     db.vm.provision "shell", inline: <<-SHELL
       export DEBIAN_FRONTEND=noninteractive
 
-      # Install PostgreSQL
+      echo "Updating system packages..."
       sudo apt-get update
-      sudo apt-get install -y postgresql postgresql-contrib
-      sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/14/main/postgresql.conf
-      # Allow connections from md5
-      # pg_hba.conf controls WHO can connect and HOW they authenticate
-      echo "host all all 0.0.0.0/0 md5" | sudo tee -a /etc/postgresql/14/main/pg_hba.conf
+      sudo apt-get upgrade -y
 
-      sudo systemctl restart postgresql
+      echo "Installing Docker..."
+      sudo apt-get install -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release
 
-      # Create database and user
-      sudo -u postgres psql -c "CREATE USER minitwit WITH PASSWORD 'minitwit';"
-      sudo -u postgres psql -c "CREATE DATABASE minitwit OWNER minitwit;"
+      # Add Docker GPG key
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-      # Load the schema as give permission to minitwit.
-      PGPASSWORD=minitwit psql -h 127.0.0.1 -U minitwit -d minitwit -f /vagrant/db/schema.sql
+      # Add Docker repository
+      echo \
+        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+      sudo apt-get update
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      echo "Installing Docker Compose..."
+      sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      sudo chmod +x /usr/local/bin/docker-compose
+
+      echo "Starting Docker service..."
+      sudo systemctl start docker
+      sudo systemctl enable docker
+
+      cd /vagrant
+      mkdir -p tmp
+
+      echo "Starting PostgreSQL container..."
+      sudo /usr/local/bin/docker-compose -f docker-compose-db.yaml up -d
+
+      echo "=========================================================="
+      echo "Database Server Ready!"
+      echo "PostgreSQL accessible at: $(hostname -I | awk '{print $1}'):5432"
+      echo "=========================================================="
     SHELL
   end
 
-  # --- Web Server ---
+  # --- Web Server with Docker ---
   config.vm.define "webserver" do |web|
     web.vm.provider :digital_ocean do |provider|
-          provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-          provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
-          provider.image = 'ubuntu-22-04-x64'
-          provider.region = 'fra1'
-          provider.size = 's-1vcpu-1gb'
-          provider.privatenetworking = true
-        end
+      provider.ssh_key_name = ENV["SSH_KEY_NAME"]
+      provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
+      provider.image = 'ubuntu-22-04-x64'
+      provider.region = 'fra1'
+      provider.size = 's-1vcpu-1gb'
+      provider.privatenetworking = true
+    end
 
     web.vm.hostname = "webserver"
 
     web.trigger.before :up do |trigger|
-          trigger.info = "Waiting for dbserver's IP..."
-          trigger.ruby do |env, machine|
-            while !File.file?($ip_file) do
-              sleep(1)
-            end
-            db_ip = File.read($ip_file).strip()
-            puts "Database found at: #{db_ip}"
-          end
+      trigger.info = "Waiting for dbserver's IP..."
+      trigger.ruby do |env, machine|
+        while !File.file?($ip_file) do
+          sleep(1)
         end
+        db_ip = File.read($ip_file).strip()
+        puts "Database found at: #{db_ip}"
+      end
+    end
 
     web.vm.provision "shell", inline: <<-SHELL
       export DEBIAN_FRONTEND=noninteractive
 
-      echo "Waiting for apt lock to be released..."
-      sudo fuser -vk -TERM /var/lib/apt/lists/lock || true
-      sudo fuser -vk -TERM /var/lib/dpkg/lock-frontend || true
-      sudo dpkg --configure -a
-
-      # Install Go
+      echo "Updating system packages..."
       sudo apt-get update
-      sudo apt-get install -y wget
+      sudo apt-get upgrade -y
 
-      # Create a swap in case the memory not enough
-      if [ ! -f "/swapfile" ]; then
-        echo "Creating 2GB Swap file for Go compilation..."
-        sudo fallocate -l 2G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-      fi
+      echo "Installing Docker..."
+      sudo apt-get install -y \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release
 
-      if [ ! -d "/usr/local/go" ]; then
-        wget -q https://dl.google.com/go/go1.25.0.linux-amd64.tar.gz
-        sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
-        rm go1.25.0.linux-amd64.tar.gz
-      fi
+      # Add Docker GPG key
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-      # Write to persistent path
-      echo 'export PATH=$PATH:/usr/local/go/bin' | sudo tee /etc/profile.d/go.sh
-      source /etc/profile.d/go.sh
+      # Add Docker repository
+      echo \
+        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+      sudo apt-get update
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      echo "Installing Docker Compose..."
+      sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      sudo chmod +x /usr/local/bin/docker-compose
+
+      echo "Starting Docker service..."
+      sudo systemctl start docker
+      sudo systemctl enable docker
 
       cd /vagrant
       mkdir -p tmp
-      rm -f ./minitwit ./bin/minitwit
 
-      # Write DB IP Value to environment variable
-      DB_IP_VALUE=$(cat /vagrant/db_ip.txt)
-      if ! grep -q "DB_ADDR=" /etc/environment; then
-        echo "DB_ADDR=$DB_IP_VALUE" | sudo tee -a /etc/environment
-      fi
-      export DB_ADDR=$DB_IP_VALUE
-      echo "Connecting to Database at: $DB_ADDR"
+      # Get database server IP
+      DB_IP=$(cat /vagrant/db_ip.txt)
+      echo "Connecting to database at: $DB_IP"
 
-      # Build the application
-      echo "Downloading Go modules..."
-      /usr/local/go/bin/go mod download
-
-      echo "Building application..."
-      /usr/local/go/bin/go build -o minitwit .
-
-      echo "Stopping any existing minitwit processes..."
-      sudo pkill minitwit || true
-
-      echo "Starting Minitwit in background..."
-      # Run the app in the background, logging all output and ensuring it persists after logout.
-      nohup ./minitwit > tmp/minitwit.log 2>&1 &
+      echo "Starting Go application container..."
+      DB_ADDR=$DB_IP sudo /usr/local/bin/docker-compose -f docker-compose-app.yaml up -d
 
       echo "=========================================================="
-      echo "Deployment Complete! Access: http://$(curl -s http://checkip.amazonaws.com):5001"
+      echo "Deployment Complete!"
+      echo "Application: http://$(curl -s http://checkip.amazonaws.com):5001"
+      echo "Database: $DB_IP:5432"
       echo "=========================================================="
+      echo ""
+      echo "To view logs: docker-compose -f docker-compose-app.yaml logs -f"
     SHELL
   end
 end

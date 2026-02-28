@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: minitwit
     volumes:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -17,16 +18,5 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile-app
-      args:
-        GO_VERSION: "1.25.0"
-    environment:
-      DB_ADDR: db
-    ports:
-      - "80:5001"
-    depends_on:
-      db:
-        condition: service_healthy
+volumes:
+  postgres_data:
