@@ -22,7 +22,6 @@
           modules = [
             ./hosts/minitweet-api/configuration.nix
             ./modules/minitweet-app.nix
-            ./modules/nginx.nix
           ];
         };
       };

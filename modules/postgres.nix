@@ -5,7 +5,7 @@
     package = pkgs.postgresql_14;
     enableTCPIP = true;
     authentication = ''
-      host all all 0.0.0.0/0 md4
+      host all all 0.0.0.0/0 md5
     '';
     ensureDatabases = [ "minitwit" ];
     ensureUsers = [{
