@@ -1,0 +1,5 @@
+# Handlers only run when notified
+- name: restart docker compose
+  command: docker compose up -d --build
+  args:
+    chdir: /opt/minitwit
