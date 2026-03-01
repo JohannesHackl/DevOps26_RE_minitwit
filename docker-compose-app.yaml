@@ -1,10 +1,6 @@
 services:
   web:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile-app
-      args:
-        GO_VERSION: "1.25.0"
+    image: ${DOCKER_IMAGE:-minitwit:latest}
     environment:
       DB_ADDR: ${DB_ADDR:-localhost}
     ports:
