@@ -1,0 +1,10 @@
+# Run the db role on the web host.
+- hosts: db
+  become: yes
+  roles:
+    - db
+
+- hosts: web
+  become: yes
+  roles:
+    - web

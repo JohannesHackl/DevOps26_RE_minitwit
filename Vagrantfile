@@ -87,47 +87,10 @@ Vagrant.configure("2") do |config|
       end
     end
 
-    web.vm.provision "shell", inline: <<-SHELL
-      export DEBIAN_FRONTEND=noninteractive
 
-      # Wait for cloud-init to finish (prevents apt locks)
-      echo "Waiting for system to be ready..."
-      cloud-init status --wait || true
-
-      # Create swap for building (prevents OOM during docker build)
-      if [ ! -f "/swapfile" ]; then
-        echo "Creating 2GB swap file..."
-        sudo fallocate -l 2G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-      fi
-
-      echo "Installing Docker (fast method)..."
-      curl -fsSL https://get.docker.com | sudo sh
-
-      echo "Starting Docker service..."
-      sudo systemctl start docker
-      sudo systemctl enable docker
-
-      cd /vagrant
-      mkdir -p tmp
-
-      # Get database server IP
-      DB_IP=$(cat /vagrant/db_ip.txt)
-      echo "Connecting to database at: $DB_IP"
-
-      echo "Building and starting Go application container..."
-      DB_ADDR=$DB_IP sudo docker compose -f docker-compose-app.yaml up -d --build
-
-      echo "=========================================================="
-      echo "Deployment Complete!"
-      echo "Application: http://$(curl -s http://checkip.amazonaws.com):5001"
-      echo "Database: $DB_IP:5432"
-      echo "=========================================================="
-      echo ""
-      echo "To view logs: docker compose -f docker-compose-app.yaml logs -f"
-    SHELL
+    web.vm.provision "ansible" do |ansible|
+        ansible.playbook = "ansible/site.yml"
+        ansible.inventory_path = "ansible/inventory.ini"
+    end
   end
 end
