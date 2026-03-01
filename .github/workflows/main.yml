@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: docker/Dockerfile-app
           push: true
           build-args: GO_VERSION=1.25.0
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
@@ -52,10 +52,12 @@ jobs:
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
-            docker stop minitwit || true
-            docker rm minitwit || true
-            docker run -d --name minitwit -p 5001:5001 -e DB_ADDR=${{ secrets.DB_ADDR }} ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
+            cd /vagrant
+            DB_IP=$(cat db_ip.txt)
+            export DB_ADDR=$DB_IP
+            export DOCKER_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
+            docker compose -f docker-compose-app.yaml pull
+            docker compose -f docker-compose-app.yaml up -d
 
   # Stage 3: Create GitHub Release
   release:
