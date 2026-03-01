@@ -37,7 +37,7 @@ jobs:
           push: true
           build-args: GO_VERSION=1.25.0
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-${{ github.ref_name }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-${{ github.ref_name | replace('/', '-') }}
             ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-latest
 
       - name: Comment on PR
