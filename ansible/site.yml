@@ -1,10 +1,5 @@
-# Run the db role on the web host.
-- hosts: db
+- hosts: all
   become: yes
   roles:
-    - db
+    - docker_app
 
-- hosts: web
-  become: yes
-  roles:
-    - web

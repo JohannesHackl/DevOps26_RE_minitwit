@@ -1,41 +1,176 @@
-- name: Install required system packages
+##################################################
+# WAIT FOR APT TO BE READY
+##################################################
+
+- name: Wait for apt lock to be released
+  shell: |
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+      echo "Waiting for apt lock..."
+      sleep 5
+    done
+  changed_when: false
+
+- name: Wait for unattended upgrades to finish
+  shell: |
+    while fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+      echo "Waiting for apt lists lock..."
+      sleep 5
+    done
+  changed_when: false
+
+- name: Fix interrupted dpkg
+  command: dpkg --configure -a
+  ignore_errors: yes
+
+- name: Clean apt cache
+  command: apt-get clean
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    lock_timeout: 300
+
+##################################################
+# Install Docker properly
+##################################################
+
+- name: Remove conflicting Docker packages
+  apt:
+    name:
+      - containerd
+      - containerd.io
+      - docker
+      - docker-engine
+      - docker.io
+      - runc
+    state: absent
+    purge: yes
+  ignore_errors: yes
+
+- name: Install Docker dependencies
   apt:
     name:
       - docker.io
-      - docker-compose-plugin
-      - rsync
+      #- docker-compose-plugin
+      - containerd
       - python3-pip
     state: present
-    update_cache: yes
+    lock_timeout: 300
 
-- name: Install Docker Python module
+- name: Install Docker Python SDK
   pip:
     name: docker
 
-- name: Install Docker Compose Python module
-  pip:
-    name: docker-compose
+- name: Create docker cli-plugins directory
+  file:
+    path: /usr/libexec/docker/cli-plugins
+    state: directory
+    mode: '0755'
 
-- name: Ensure docker is running
-  service:
+- name: Install Docker Compose plugin
+  get_url:
+    url: https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64
+    dest: /usr/libexec/docker/cli-plugins/docker-compose
+    mode: '0755'
+
+##################################################
+# Configure containerd properly
+##################################################
+
+- name: Create containerd config directory
+  file:
+    path: /etc/containerd
+    state: directory
+
+- name: Generate containerd config
+  command: containerd config default
+  register: containerd_config
+  changed_when: false
+
+- name: Write containerd config
+  copy:
+    content: "{{ containerd_config.stdout }}"
+    dest: /etc/containerd/config.toml
+
+##################################################
+# Start container services
+##################################################
+
+- name: Start and enable containerd
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+- name: Start and enable docker
+  systemd:
     name: docker
     state: started
     enabled: yes
+    daemon_reload: yes
+
+##################################################
+# DB server tasks
+##################################################
+
+- name: Create DB directory
+  file:
+    path: /opt/minitwit-db
+    state: directory
+  when: inventory_hostname == "dbserver"
+
+# - name: Pull project from Git
+#   git:
+#     repo: https://github.com/yourrepo/minitwit.git
+#     dest: /opt/minitwit
+#     version: main
+
+- name: Copy full project to DB server
+  copy:
+    src: "{{ playbook_dir }}/../Hello.txt"
+    dest: /opt/minitwit-db
+    owner: root
+    group: root
+    mode: '0755'
+  when: inventory_hostname == "dbserver"
+  notify: restart db 
+
+- name: Start DB container
+  community.docker.docker_compose_v2:
+    project_src: /opt/minitwit-db
+    files:
+      - docker-compose-db.yaml
+    state: present
+    build: always
+  when: inventory_hostname == "dbserver"
+
+##################################################
+# App playbook tasks
+##################################################
 
 - name: Create application directory
   file:
-    path: /opt/minitwit # standard directory in Linux for add-on software applications
+    path: /opt/minitwit
     state: directory
-    mode: '0755' # I am not sure about this
+    mode: '0755'
+  when: inventory_hostname == "webserver"
 
-- name: Copy project files
-  synchronize:
+- name: Copy full project to Web server
+  copy:
     src: "{{ playbook_dir }}/../"
     dest: /opt/minitwit
-    delete: yes
-  notify: restart docker compose
+    owner: root
+    group: root
+    mode: '0755'
+  when: inventory_hostname == "webserver"
+  notify: restart web
 
-- name: Start Docker Compose stack
-  command: docker compose up -d --build
-  args:
-    chdir: /opt/minitwit
+- name: Start Web container
+  community.docker.docker_compose_v2:
+    project_src: /opt/minitwit
+    files:
+      - docker-compose-app.yaml
+    state: present
+    build: always
+  when: inventory_hostname == "webserver"

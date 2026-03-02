@@ -1,5 +1,16 @@
 # Handlers only run when notified
-- name: restart docker compose
-  command: docker compose up -d --build
-  args:
-    chdir: /opt/minitwit
+- name: restart db
+  community.docker.docker_compose_v2:
+    project_src: /opt/minitwit-db
+    files:
+      - docker-compose-db.yaml
+    state: present
+    build: always
+
+- name: restart web
+  community.docker.docker_compose_v2:
+    project_src: /opt/minitwit
+    files:
+      - docker-compose-app.yaml
+    state: present
+    build: always
