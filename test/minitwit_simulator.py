@@ -116,7 +116,12 @@ def get_actions():
 
 def main(host):
     failures = []
+    totals = {"register": 0, "tweet": 0, "follow": 0, "unfollow": 0}
+
     for action, delay in get_actions():
+        command = action["post_type"]
+        if command in totals:
+            totals[command] += 1
         try:
             # SWITCH ON TYPE
             command = action["post_type"]
@@ -267,18 +272,23 @@ def main(host):
         except Exception as e:
             print("========================================")
             print(traceback.format_exc())
-            log_failure(action, type(e).__name__)
+            log_failure(failures, action, type(e).__name__)
 
         sleep(delay / (1000 * 100000))
 
-    return failures
+    return failures, totals
 
 
 if __name__ == "__main__":
     host = sys.argv[1]
 
-    failures = main(host)
+    failures, totals = main(host)
 
     if failures:
+        from collections import Counter
+        failure_counts = Counter(f["command"] for f in failures)
         print(f"\n=== {len(failures)} failure(s) ===")
+        for command, total in totals.items():
+            failed = failure_counts.get(command, 0)
+            print(f"  {command}: {failed}/{total} failed")
         sys.exit(1)
