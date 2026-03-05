@@ -11,7 +11,7 @@ db.Exec("INSERT INTO messages (author_id, text, pub_date, flagged) VALUES ($1, $
 db.Query("SELECT messages.*, users.* FROM messages, users WHERE ...")
 ```
 
-This is **tightly coupled to the database** — the Go code knows exactly which table names, column names, and SQL syntax PostgreSQL uses. If we ever switch databases, or rename a column, or change a query, we would have to find and edit raw strings throughout the whole codebase.
+This is **tightly coupled to the database**: the Go code knows exactly which table names, column names, and SQL syntax PostgreSQL uses. If we ever switch databases, or rename a column, or change a query, we would have to find and edit raw strings throughout the whole codebase.
 
 ---
 
@@ -23,7 +23,7 @@ An ORM (Object-Relational Mapper) lets us work with **Go structs** instead of SQ
 
 ## What Was Changed
 
-### Step 1 — Models (structs) that map to DB tables
+### 1. Models (structs) that map to DB tables
 
 ```go
 type User struct {
@@ -49,13 +49,13 @@ type Follower struct {
 ```
 
 The backtick tags (`gorm:"..."`) tell GORM which column in the database each field corresponds to.
-The `Author User` field on `Message` tells GORM there is a relationship — a message belongs to a user.
+The `Author User` field on `Message` tells GORM there is a relationship: a message belongs to a user.
 
-**No schema changes** — these structs describe the tables that already existed.
+**No schema changes**: these structs describe the tables that already existed.
 
 ---
 
-### Step 2 — Swapped `*sql.DB` for `*gorm.DB`
+### 2. Swapped `*sql.DB` for `*gorm.DB`
 
 ```go
 // Before
@@ -71,7 +71,7 @@ GORM wraps the database connection and adds its query-building layer on top.
 
 ---
 
-### Step 3 — Replaced every raw SQL call with GORM methods
+### 3. Replaced every raw SQL call with GORM methods
 
 | Before (raw SQL) | After (GORM) |
 |---|---|

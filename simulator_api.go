@@ -145,15 +145,13 @@ func get_follow(c *gin.Context) {
 	numMsgs, _ := strconv.Atoi(numMsgsStr)
 
 	var followers []Follower
-	db.Where("who_id = ?", userID).Limit(numMsgs).Find(&followers)
+	db.Preload("Whom").Where("who_id = ?", userID).Limit(numMsgs).Find(&followers)
 
 	follows := []string{}
 	for _, f := range followers {
-		var u User
-		if db.First(&u, f.WhomID).Error == nil {
-			follows = append(follows, u.Username)
-		}
+		follows = append(follows, f.Whom.Username)
 	}
+
 	c.JSON(http.StatusOK, gin.H{"follows": follows})
 }
 

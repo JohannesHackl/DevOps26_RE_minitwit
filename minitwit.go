@@ -46,6 +46,7 @@ func (User) TableName() string     { return "users" }
 type Follower struct {
 	WhoID  int `gorm:"column:who_id"`
 	WhomID int `gorm:"column:whom_id"`
+	Whom   User `gorm:"foreignKey:WhomID"`
 }
 
 func (Follower) TableName() string { return "follower" }

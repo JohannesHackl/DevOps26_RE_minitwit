@@ -33,3 +33,12 @@ minitwit
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Python
+__pychache__/
+*.pyc
+*.pyo
+*.pyd
+
+# GitHub workflows
+.github/
