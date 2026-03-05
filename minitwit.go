@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/md5"
-	"database/sql"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -13,8 +12,9 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 const (
@@ -22,26 +22,34 @@ const (
 	SECRET_KEY string = "development key"
 )
 
-var db *sql.DB
+var db *gorm.DB
 
 type User struct {
-	UserID   int
-	Username string
-	Email    string
-	PWHash   string
+	UserID   int    `gorm:"column:user_id;primaryKey;autoIncrement"`
+	Username string `gorm:"column:username;not null"`
+	Email    string `gorm:"column:email;not null"`
+	PWHash   string `gorm:"column:pw_hash;not null"`
 }
 
-type TimelineMessage struct {
-	MessageID int
-	AuthorID  int
-	Text      string
-	PubDate   int64
-	Flagged   int
-	UserID    int
-	Username  string
-	Email     string
-	PWHash    string
+type Message struct {
+	MessageID int    `gorm:"column:message_id;primaryKey;autoIncrement"`
+	AuthorID  int    `gorm:"column:author_id;not null"`
+	Text      string `gorm:"column:text;not null"`
+	PubDate   int64  `gorm:"column:pub_date"`
+	Flagged   int    `gorm:"column:flagged"`
+	Author    User   `gorm:"foreignKey:AuthorID;references:UserID"`
 }
+
+func (Message) TableName() string  { return "messages" }
+func (User) TableName() string     { return "users" }
+
+type Follower struct {
+	WhoID  int `gorm:"column:who_id"`
+	WhomID int `gorm:"column:whom_id"`
+	Whom   User `gorm:"foreignKey:WhomID"`
+}
+
+func (Follower) TableName() string { return "follower" }
 
 func main() {
 	err := init_db()
@@ -49,7 +57,6 @@ func main() {
 		fmt.Printf("Error initializing database: %v\n", err)
 		return
 	}
-	defer db.Close()
 
 	router := create_app()
 	router.Run(":5001")
@@ -75,6 +82,7 @@ func create_app() *gin.Engine {
 	router.SetFuncMap(funcMap)
 	router.LoadHTMLGlob("./templates/*")
 	router.Static("/static", "./static")
+	router.StaticFile("/favicon.ico", "./static/favicon.ico")
 
 	simAuth := gin.BasicAuth(gin.Accounts{
 		"simulator": "super_safe!",
@@ -109,14 +117,14 @@ func create_app() *gin.Engine {
 	return router
 }
 
-func connect_db() (*sql.DB, error) {
+func connect_db() (*gorm.DB, error) {
 	host := os.Getenv("DB_ADDR")
 	if host == "" {
 		fmt.Println("WARNING: DB_ADDR environment variable is empty!")
 		host = "localhost"
 	}
-	connStr := fmt.Sprintf("host=%s user=minitwit password=minitwit dbname=minitwit sslmode=disable", host)
-	return sql.Open("postgres", connStr)
+	dsn := fmt.Sprintf("host=%s user=minitwit password=minitwit dbname=minitwit sslmode=disable", host)
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
 }
 
 func init_db() error {
@@ -126,16 +134,15 @@ func init_db() error {
 }
 
 func get_user_id(username string) (int, error) {
-	var id int
-	query := "SELECT user_id FROM users WHERE username = $1"
-	err := db.QueryRow(query, username).Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	var user User
+	result := db.Where("username = ?", username).First(&user)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
 			return 0, nil
 		}
-		return 0, err
+		return 0, result.Error
 	}
-	return id, nil
+	return user.UserID, nil
 }
 
 func format_datetime(timestamp int64) string {
@@ -154,9 +161,7 @@ func before_request(c *gin.Context) {
 
 	if userID != nil {
 		var user User
-		err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE user_id = $1", userID).
-			Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
-		if err == nil {
+		if err := db.First(&user, userID).Error; err == nil {
 			c.Set("user", user)
 		}
 	}
@@ -173,17 +178,9 @@ func timeline(c *gin.Context) {
 	}
 	user := val.(User)
 
-	query := `
-        SELECT messages.*, users.* FROM messages, users
-        WHERE messages.flagged = 0 AND messages.author_id = users.user_id AND (
-            users.user_id = $1 OR
-            users.user_id IN (SELECT whom_id FROM follower WHERE who_id = $2))
-        ORDER BY messages.pub_date DESC LIMIT $3`
-
-	messages, err := queryTimeline(query, user.UserID, user.UserID, PER_PAGE)
-	if err != nil {
-		fmt.Println(err)
-	}
+	var messages []Message
+	db.Preload("Author").Where("flagged = 0 AND (author_id = ? OR author_id IN (SELECT whom_id FROM follower WHERE who_id = ?))", user.UserID, user.UserID).
+		Order("pub_date DESC").Limit(PER_PAGE).Find(&messages)
 
 	render(c, http.StatusOK, "timeline.html", gin.H{
 		"messages": messages,
@@ -192,12 +189,9 @@ func timeline(c *gin.Context) {
 }
 
 func public_timeline(c *gin.Context) {
-	query := `
-        SELECT messages.*, users.* FROM messages, users
-        WHERE messages.flagged = 0 AND messages.author_id = users.user_id
-        ORDER BY messages.pub_date DESC LIMIT $1`
-
-	messages, _ := queryTimeline(query, PER_PAGE)
+	var messages []Message
+	db.Preload("Author").Where("flagged = 0").
+		Order("pub_date DESC").Limit(PER_PAGE).Find(&messages)
 
 	render(c, http.StatusOK, "timeline.html", gin.H{
 		"messages": messages,
@@ -208,9 +202,7 @@ func public_timeline(c *gin.Context) {
 func user_timeline(c *gin.Context) {
 	username := c.Param("username")
 	var profileUser User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE username = $1", username).
-		Scan(&profileUser.UserID, &profileUser.Username, &profileUser.Email, &profileUser.PWHash)
-	if err != nil {
+	if err := db.Where("username = ?", username).First(&profileUser).Error; err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -218,17 +210,14 @@ func user_timeline(c *gin.Context) {
 	followed := false
 	if val, exists := c.Get("user"); exists {
 		currUser := val.(User)
-		var count int
-		db.QueryRow("SELECT 1 FROM follower WHERE who_id = $1 AND whom_id = $2", currUser.UserID, profileUser.UserID).Scan(&count)
+		var count int64
+		db.Model(&Follower{}).Where("who_id = ? AND whom_id = ?", currUser.UserID, profileUser.UserID).Count(&count)
 		followed = count > 0
 	}
 
-	query := `
-        SELECT messages.*, users.* FROM messages, users 
-        WHERE users.user_id = messages.author_id AND users.user_id = $1
-        ORDER BY messages.pub_date DESC LIMIT $2`
-
-	messages, _ := queryTimeline(query, profileUser.UserID, PER_PAGE)
+	var messages []Message
+	db.Preload("Author").Where("author_id = ?", profileUser.UserID).
+		Order("pub_date DESC").Limit(PER_PAGE).Find(&messages)
 
 	render(c, http.StatusOK, "timeline.html", gin.H{
 		"messages":     messages,
@@ -253,7 +242,7 @@ func follow_user(c *gin.Context) {
 		return
 	}
 
-	db.Exec("INSERT INTO follower (who_id, whom_id) VALUES ($1, $2)", currUser.UserID, whomID)
+	db.Create(&Follower{WhoID: currUser.UserID, WhomID: whomID})
 	c.Redirect(http.StatusFound, "/"+username)
 }
 
@@ -272,7 +261,7 @@ func unfollow_user(c *gin.Context) {
 		return
 	}
 
-	db.Exec("DELETE FROM follower WHERE who_id = $1 AND whom_id = $2", currUser.UserID, whomID)
+	db.Where("who_id = ? AND whom_id = ?", currUser.UserID, whomID).Delete(&Follower{})
 	c.Redirect(http.StatusFound, "/"+username)
 }
 
@@ -286,10 +275,8 @@ func add_message(c *gin.Context) {
 	text := c.PostForm("text")
 
 	if text != "" {
-		_, err := db.Exec("INSERT INTO messages (author_id, text, pub_date, flagged) VALUES ($1, $2, $3, 0)",
-			user.UserID, text, time.Now().Unix())
-
-		if err == nil {
+		msg := Message{AuthorID: user.UserID, Text: text, PubDate: time.Now().Unix(), Flagged: 0}
+		if err := db.Create(&msg).Error; err == nil {
 			session := sessions.Default(c)
 			session.AddFlash("Your message was recorded")
 			session.Save()
@@ -314,8 +301,7 @@ func loginPost(c *gin.Context) {
 	password := c.PostForm("password")
 
 	var user User
-	err := db.QueryRow("SELECT user_id, username, email, pw_hash FROM users WHERE username = $1", username).
-		Scan(&user.UserID, &user.Username, &user.Email, &user.PWHash)
+	err := db.Where("username = ?", username).First(&user).Error
 
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PWHash), []byte(password)) != nil {
 		render(c, http.StatusOK, "login.html", gin.H{"error": "Invalid username or password"})
@@ -353,9 +339,8 @@ func registerPost(c *gin.Context) {
 	} else if password != passwordConf {
 		errorStr = "The two passwords do not match"
 	} else {
-		var existingID int
-		err := db.QueryRow("SELECT user_id FROM users WHERE username = $1", username).Scan(&existingID)
-		if err == nil {
+		var existing User
+		if err := db.Where("username = ?", username).First(&existing).Error; err == nil {
 			errorStr = "The username is already taken"
 		}
 	}
@@ -366,9 +351,8 @@ func registerPost(c *gin.Context) {
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	_, err := db.Exec("INSERT INTO users (username, email, pw_hash) VALUES ($1, $2, $3)",
-		username, email, string(hashedPassword))
-	if err != nil {
+	newUser := User{Username: username, Email: email, PWHash: string(hashedPassword)}
+	if err := db.Create(&newUser).Error; err != nil {
 		render(c, http.StatusOK, "register.html", gin.H{"error 404": err})
 		return
 	}
@@ -402,23 +386,4 @@ func render(c *gin.Context, code int, name string, data gin.H) {
 	c.HTML(code, name, data)
 }
 
-// Database Helper
 
-func queryTimeline(query string, args ...interface{}) ([]TimelineMessage, error) {
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var messages []TimelineMessage
-	for rows.Next() {
-		var tm TimelineMessage
-		err := rows.Scan(&tm.MessageID, &tm.AuthorID, &tm.Text, &tm.PubDate, &tm.Flagged,
-			&tm.UserID, &tm.Username, &tm.Email, &tm.PWHash)
-		if err == nil {
-			messages = append(messages, tm)
-		}
-	}
-	return messages, nil
-}

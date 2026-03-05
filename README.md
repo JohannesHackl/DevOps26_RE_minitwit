@@ -88,6 +88,27 @@ tail -f /var/log/minitwit.log
 
 ---
 
+## 🏗 Design Decisions
+
+### Language: Go
+We chose Go for its simplicity, strong standard library, and excellent performance for web services. Its built-in concurrency model (goroutines), fast compile times, and single-binary output make it well-suited for a containerized, cloud-deployed application like MiniTwit.
+
+### Infrastructure: Two VMs (App + DB)
+We separate the web server and database into two distinct VMs following standard practice. The main benefit is independent scalability: if the app server becomes a bottleneck, we can scale it horizontally without touching the database, and vice versa. This also follows the structure of the provided example Vagrantfile from the course.
+
+### DB Abstraction: GORM
+We use **GORM** as our Object-Relational Mapper (ORM) to abstract database interactions. 
+- **Type Safety**: Instead of raw SQL strings, we interact with Go structs (e.g., `User`, `Message`).
+- **Decoupling**: The application logic remains independent of specific SQL syntax, making it easier to maintain or switch database engines.
+- **Relationships**: GORM handles complex joins and foreign keys using `Preload`, keeping our data fetching logic clean and readable.
+
+### CI/CD: GitHub Actions
+Our project utilizes **GitHub Actions** for an automated pipeline:
+- **Testing**: On every push, we run our test suite using Docker Compose to ensure code quality.
+- **Continuous Deployment**: Successful pushes to the `main` branch trigger a Docker build, which is pushed to Docker Hub and automatically deployed to our DigitalOcean Droplet via SSH.
+- **Releases**: Pushing a version tag (e.g., `v1.0.0`) automatically generates a GitHub Release with automated changelogs.
+---
+
 ## 📂 Project Structure
 
 ```text

@@ -57,10 +57,8 @@ func post_register(c *gin.Context) {
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Pwd), bcrypt.DefaultCost)
-	_, err := db.Exec("INSERT INTO users (username, email, pw_hash) VALUES ($1, $2, $3)",
-		req.Username, req.Email, string(hashedPassword))
-
-	if err != nil {
+	newUser := User{Username: req.Username, Email: req.Email, PWHash: string(hashedPassword)}
+	if err := db.Create(&newUser).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": 400, "error_msg": "Username already taken"})
 		return
 	}
@@ -74,24 +72,17 @@ func get_messages(c *gin.Context) {
 	numMsgsStr := c.DefaultQuery("no", "20")
 	numMsgs, _ := strconv.Atoi(numMsgsStr)
 
-	query := `
-       SELECT messages.text, messages.pub_date, users.username 
-       FROM messages, users 
-       WHERE messages.flagged = 0 AND messages.author_id = users.user_id 
-       ORDER BY messages.pub_date DESC LIMIT $1`
-
-	rows, err := db.Query(query, numMsgs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer rows.Close()
+	var msgs []Message
+	db.Preload("Author").Where("flagged = 0").
+		Order("pub_date DESC").Limit(numMsgs).Find(&msgs)
 
 	var messages []SimMessage
-	for rows.Next() {
-		var m SimMessage
-		rows.Scan(&m.Content, &m.PubDate, &m.User)
-		messages = append(messages, m)
+	for _, m := range msgs {
+		messages = append(messages, SimMessage{
+			Content: m.Text,
+			PubDate: m.PubDate,
+			User:    m.Author.Username,
+		})
 	}
 	c.JSON(http.StatusOK, messages)
 }
@@ -109,26 +100,17 @@ func get_messages_per_user(c *gin.Context) {
 		return
 	}
 
-	query := `
-		SELECT m.text, m.pub_date, u.username 
-		FROM messages m
-		JOIN users u ON u.user_id = m.author_id 
-		WHERE m.flagged = 0 AND u.user_id = $1
-		ORDER BY m.pub_date DESC LIMIT $2`
-
-	rows, err := db.Query(query, userID, numMsgs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer rows.Close()
+	var msgs []Message
+	db.Preload("Author").Where("flagged = 0 AND author_id = ?", userID).
+		Order("pub_date DESC").Limit(numMsgs).Find(&msgs)
 
 	messages := []SimMessage{}
-	for rows.Next() {
-		var m SimMessage
-		if err := rows.Scan(&m.Content, &m.PubDate, &m.User); err == nil {
-			messages = append(messages, m)
-		}
+	for _, m := range msgs {
+		messages = append(messages, SimMessage{
+			Content: m.Text,
+			PubDate: m.PubDate,
+			User:    m.Author.Username,
+		})
 	}
 	c.JSON(http.StatusOK, messages)
 }
@@ -145,10 +127,8 @@ func post_messages_per_user(c *gin.Context) {
 		return
 	}
 
-	_, err := db.Exec("INSERT INTO messages (author_id, text, pub_date, flagged) VALUES ($1, $2, $3, 0)",
-		userID, req.Content, time.Now().Unix())
-
-	if err != nil {
+	msg := Message{AuthorID: userID, Text: req.Content, PubDate: time.Now().Unix(), Flagged: 0}
+	if err := db.Create(&msg).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": 500, "error_msg": err.Error()})
 		return
 	}
@@ -164,25 +144,14 @@ func get_follow(c *gin.Context) {
 	numMsgsStr := c.DefaultQuery("no", "20")
 	numMsgs, _ := strconv.Atoi(numMsgsStr)
 
-	query := `
-		SELECT u.username FROM users u
-		INNER JOIN follower f ON f.whom_id = u.user_id
-		WHERE f.who_id = $1 LIMIT $2`
-
-	rows, err := db.Query(query, userID, numMsgs)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer rows.Close()
+	var followers []Follower
+	db.Preload("Whom").Where("who_id = ?", userID).Limit(numMsgs).Find(&followers)
 
 	follows := []string{}
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err == nil {
-			follows = append(follows, name)
-		}
+	for _, f := range followers {
+		follows = append(follows, f.Whom.Username)
 	}
+
 	c.JSON(http.StatusOK, gin.H{"follows": follows})
 }
 
@@ -200,10 +169,10 @@ func post_follow(c *gin.Context) {
 
 	if action.Follow != "" {
 		whomID, _ := get_user_id(action.Follow)
-		db.Exec("INSERT INTO follower (who_id, whom_id) VALUES ($1, $2)", userID, whomID)
+		db.Create(&Follower{WhoID: userID, WhomID: whomID})
 	} else if action.Unfollow != "" {
 		whomID, _ := get_user_id(action.Unfollow)
-		db.Exec("DELETE FROM follower WHERE who_id = $1 AND whom_id = $2", userID, whomID)
+		db.Where("who_id = ? AND whom_id = ?", userID, whomID).Delete(&Follower{})
 	}
 
 	c.Status(http.StatusNoContent)
