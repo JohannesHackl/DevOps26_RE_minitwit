@@ -77,10 +77,21 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy docker-compose file to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ github.ref == 'refs/heads/main' && secrets.DO_HOST || secrets.DO_HOST_STAGE }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ github.ref == 'refs/heads/main' && secrets.DO_SSH_KEY || secrets.DO_SSH_KEY_STAGE }}
+          source: "docker-compose-app.yaml"
+          target: "/opt/minitwit"
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
-          # Automatically uses STAGE variables during a PR, and prod variables during push to main
           DB_ADDR: ${{ github.ref == 'refs/heads/main' && secrets.DO_DB || secrets.DO_DB_STAGE }}
           DOCKER_IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
         with:
@@ -89,7 +100,8 @@ jobs:
           key: ${{ github.ref == 'refs/heads/main' && secrets.DO_SSH_KEY || secrets.DO_SSH_KEY_STAGE }}
           envs: DB_ADDR,DOCKER_IMAGE
           script: |
-            cd /vagrant
+            # Navigate to the new deployment directory instead of /vagrant
+            cd /opt/minitwit
             
             export DB_ADDR=$DB_ADDR
             export DOCKER_IMAGE=$DOCKER_IMAGE
