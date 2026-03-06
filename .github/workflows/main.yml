@@ -84,7 +84,7 @@ jobs:
         with:
           host: ${{ github.ref == 'refs/heads/main' && secrets.DO_HOST || secrets.DO_HOST_STAGE }}
           username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
+          key: ${{ github.ref == 'refs/heads/main' && secrets.DO_SSH_KEY || secrets.DO_SSH_KEY_STAGE }}
           envs: DB_ADDR,DOCKER_IMAGE
           script: |
             cd /vagrant
