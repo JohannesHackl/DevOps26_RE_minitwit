@@ -31,6 +31,18 @@ HEADERS = {
 }
 
 
+def log_failure(failures, action, reason, status_code=None):
+    ts_str = datetime.strftime(datetime.utcnow(), "%Y-%m-%d %H:%M:%S")
+    entry = {
+        "time": ts_str,
+        "command_id": action["latest"],
+        "command": action["post_type"],
+        "status": status_code,
+        "reason": reason,
+    }
+    failures.append(entry)
+    print(",".join([ts_str, str(action["latest"]), action["post_type"], reason, str(status_code)]))
+
 def get_actions():
 
     # read scenario .csv and parse to a list of lists
@@ -103,11 +115,20 @@ def get_actions():
 
 
 def main(host):
+    failures = []
+    
+
+    totals = defaultdict(int)
     for action, delay in get_actions():
+        command = action["post_type"]
+        if command in {"register", "tweet", "follow", "unfollow"}:
+            totals[command] += 1
+        else:
+            totals[command + "--UNEXPECTED"] += 1
         try:
             # SWITCH ON TYPE
             command = action["post_type"]
-            reponse = None
+            response = None
 
             if command == "register":
 
@@ -137,20 +158,7 @@ def main(host):
                     (response.status_code == 204)
                     or (response.status_code == 400)
                 ):
-                    ts_str = datetime.strftime(
-                        datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                    )
-                    print(
-                        ",".join(
-                            [
-                                ts_str,
-                                host,
-                                str(action["latest"]),
-                                str(response.status_code),
-                                command,
-                            ]
-                        )
-                    )
+                    log_failure(failures, action, "Unexpected", response.status_code)
 
                 response.close()
 
@@ -171,20 +179,7 @@ def main(host):
 
                 # 403 bad request
                 if response.status_code != 200:
-                    ts_str = datetime.strftime(
-                        datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                    )
-                    print(
-                        ",".join(
-                            [
-                                ts_str,
-                                host,
-                                str(action["latest"]),
-                                str(response.status_code),
-                                command,
-                            ]
-                        )
-                    )
+                    log_failure(failures, action, "Bad request", response.status_code)
 
                 response.close()
 
@@ -211,20 +206,8 @@ def main(host):
 
                 # 403 unauthorized or 404 Not Found
                 if response.status_code != 204:
-                    ts_str = datetime.strftime(
-                        datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                    )
-                    print(
-                        ",".join(
-                            [
-                                ts_str,
-                                host,
-                                str(action["latest"]),
-                                str(response.status_code),
-                                command,
-                            ]
-                        )
-                    )
+                    reason = "Unauthorized" if response.status_code == 403 else "Not found: User id"
+                    log_failure(failures, action, reason, response.status_code)
 
                 response.close()
 
@@ -251,20 +234,8 @@ def main(host):
 
                 # 403 unauthorized or 404 Not Found
                 if response.status_code != 204:
-                    ts_str = datetime.strftime(
-                        datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                    )
-                    print(
-                        ",".join(
-                            [
-                                ts_str,
-                                host,
-                                str(action["latest"]),
-                                str(response.status_code),
-                                command,
-                            ]
-                        )
-                    )
+                    reason = "Unauthorized" if response.status_code == 403 else "Not found: User id"
+                    log_failure(failures, action, reason, response.status_code)
 
                 response.close()
 
@@ -289,65 +260,39 @@ def main(host):
                 # error handling (204 success, 403 failure)
                 # 403 unauthorized
                 if response.status_code != 204:
-                    ts_str = datetime.strftime(
-                        datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                    )
-                    print(
-                        ",".join(
-                            [
-                                ts_str,
-                                host,
-                                str(action["latest"]),
-                                str(response.status_code),
-                                command,
-                            ]
-                        )
-                    )
+                    log_failure(failures, action, "Unauthorized", response.status_code)
 
                 response.close()
 
             else:
-                # throw exception. Should not be hit
-                ts_str = datetime.strftime(
-                    datetime.utcnow(), "%Y-%m-%d %H:%M:%S"
-                )
-                print(
-                    ",".join(
-                        [
-                            "FATAL: Unknown message type",
-                            ts_str,
-                            host,
-                            str(action["latest"]),
-                        ]
-                    )
-                )
+                log_failure(failures, action, "FATAL: Unknown message type")
+                
 
         except requests.exceptions.ConnectionError as e:
-            ts_str = datetime.strftime(datetime.utcnow(), "%Y-%m-%d %H:%M:%S")
-            print(
-                ",".join(
-                    [ts_str, host, str(action["latest"]), "ConnectionError"]
-                )
-            )
+            log_failure(failures, action, "ConnectionError")
         except requests.exceptions.ReadTimeout as e:
-            ts_str = datetime.strftime(datetime.utcnow(), "%Y-%m-%d %H:%M:%S")
-            print(
-                ",".join([ts_str, host, str(action["latest"]), "ReadTimeout"])
-            )
+            log_failure(failures, action, "ReadTimeout")
         except Exception as e:
             print("========================================")
             print(traceback.format_exc())
-            ts_str = datetime.strftime(datetime.utcnow(), "%Y-%m-%d %H:%M:%S")
-            print(
-                ",".join(
-                    [ts_str, host, str(action["latest"]), type(e).__name__]
-                )
-            )
+            log_failure(failures, action, type(e).__name__)
 
         sleep(delay / (1000 * 100000))
+
+    return failures, totals
 
 
 if __name__ == "__main__":
     host = sys.argv[1]
 
-    main(host)
+    failures, totals = main(host)
+
+    total = sum(totals.values())
+    if total > 0 and len(failures) / total > 0.05: # 5% errors max to account for false error due to timeouts.
+        from collections import Counter
+        failure_counts = Counter(f["command"] for f in failures)
+        print(f"\n=== {len(failures)} failure(s) ===")
+        for command, total in totals.items():
+            failed = failure_counts.get(command, 0)
+            print(f"  {command}: {failed}/{total} failed")
+        sys.exit(1)
