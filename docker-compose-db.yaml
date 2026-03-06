@@ -1,6 +1,6 @@
 services:
   db:
-    image: ${DOCKER_IMAGE:-kuba402/minitwit-db:latest}
+    image: ${DOCKER_IMAGE:-runtimeerroritu/minitwit-db:latest}
     # build:
     #   context: .
     #   dockerfile: docker/Dockerfile-db

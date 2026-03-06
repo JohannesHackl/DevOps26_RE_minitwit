@@ -1,6 +1,6 @@
 services:
   web:
-    image: kuba402/minitwit:latest
+    image: runtimeerroritu/minitwit:latest
     environment:
       DB_ADDR: ${DB_ADDR:-localhost}
     ports:
