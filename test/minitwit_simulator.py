@@ -17,6 +17,7 @@ from time import sleep
 from datetime import datetime
 from contextlib import closing
 import sqlite3
+from collections import defaultdict
 
 
 CSV_FILENAME = "./test/minitwit_scenario.csv"
