@@ -1,0 +1,23 @@
+services:
+  db:
+    image: ${DOCKER_IMAGE:-runtimeerroritu/minitwit-db:latest}
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile-db
+    environment:
+      POSTGRES_USER: minitwit
+      POSTGRES_PASSWORD: minitwit
+      POSTGRES_DB: minitwit
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minitwit"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

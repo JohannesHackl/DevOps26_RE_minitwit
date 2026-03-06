@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:14
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-db
     environment:
       POSTGRES_USER: minitwit
       POSTGRES_PASSWORD: minitwit
@@ -18,7 +20,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: docker/Dockerfile-tests
+      dockerfile: docker/Dockerfile-app
       args:
         GO_VERSION: "1.25.0"
     environment:
@@ -32,7 +34,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: docker/Dockerfile-tests
+      dockerfile: docker/Dockerfile-test
       args:
         GO_VERSION: "1.25.0"
     depends_on:

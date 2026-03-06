@@ -1,0 +1,7 @@
+- hosts: all
+  become: yes
+  vars_files:
+    - credentials.yml # to be removed later
+  roles:
+    - docker_app
+

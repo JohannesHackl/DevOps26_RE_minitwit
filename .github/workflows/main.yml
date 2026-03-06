@@ -1,11 +1,18 @@
-name: MiniTwit CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
-    # Trigger when tags starting with 'v' are pushed (e.g., v1.0, v1.2.3)
-    tags:
-      - 'v*'
+    # Only trigger on push to main branch
+    branches:
+      - main
+  pull_request:
+    # Only trigger on PRs targeting main branch
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  issues: write
 
 jobs:
   test:
@@ -15,14 +22,28 @@ jobs:
 
       - name: Run tests
         run: docker compose -f docker-compose-tests.yaml up --abort-on-container-exit --exit-code-from test
-  # Stage 1: Build the Docker image and push to Docker Hub
+
   build-and-push:
-    # Only run on main branch pushes, not on tags
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.prepare.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare environment variables and Docker tags
+        id: prepare
+        run: |
+          # Sanitize branch name replacing slashes with dashes
+          BRANCH_NAME=$(echo '${{ github.head_ref || github.ref_name }}' | tr '/' '-')
+          
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "docker_tags=${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest" >> $GITHUB_OUTPUT
+            echo "image_tag=${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest" >> $GITHUB_OUTPUT
+          else
+            echo "docker_tags=${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-${BRANCH_NAME},${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-latest" >> $GITHUB_OUTPUT
+            echo "image_tag=${{ secrets.DOCKERHUB_USERNAME }}/minitwit:test-${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -34,43 +55,44 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile
+          file: docker/Dockerfile-app
           push: true
           build-args: GO_VERSION=1.25.0
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
+          tags: ${{ steps.prepare.outputs.docker_tags }}
 
-  # Stage 2: Deploy to Digital Ocean droplet via SSH
+      - name: Comment on PR
+        # Only execute this step during a Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Tests passed and test image built!\n\nTest image: `${{ steps.prepare.outputs.image_tag }}`\n\nYou can deploy this for manual testing if needed.'
+            })
+
   deploy:
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          # Automatically uses STAGE variables during a PR, and prod variables during push to main
+          DB_ADDR: ${{ github.ref == 'refs/heads/main' && secrets.DO_DB || secrets.DO_DB_STAGE }}
+          DOCKER_IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
         with:
-          host: ${{ secrets.DO_HOST }}
+          host: ${{ github.ref == 'refs/heads/main' && secrets.DO_HOST || secrets.DO_HOST_STAGE }}
           username: ${{ secrets.DO_USER }}
-          key: ${{ secrets.DO_SSH_KEY }}
+          key: ${{ github.ref == 'refs/heads/main' && secrets.DO_SSH_KEY || secrets.DO_SSH_KEY_STAGE }}
+          envs: DB_ADDR,DOCKER_IMAGE
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
-            docker stop minitwit || true
-            docker rm minitwit || true
-            docker run -d --name minitwit -p 5001:5001 -e DB_ADDR=${{ secrets.DB_ADDR }} ${{ secrets.DOCKERHUB_USERNAME }}/minitwit:latest
-
-  # Stage 3: Create GitHub Release
-  release:
-    # Only run when a tag is pushed
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # Important: Grant permission to create a release
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # Automatically generate release notes based on commit logs
-          generate_release_notes: true
-          # You can specify a custom body or leave it to auto-generate
-          body: "Automated release for version ${{ github.ref_name }}"
+            cd /vagrant
+            
+            export DB_ADDR=$DB_ADDR
+            export DOCKER_IMAGE=$DOCKER_IMAGE
+            
+            docker compose -f docker-compose-app.yaml pull
+            docker compose -f docker-compose-app.yaml up -d

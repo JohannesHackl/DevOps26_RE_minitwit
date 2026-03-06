@@ -1,0 +1,2 @@
+FROM postgres:14
+# this extends the official PostgreSQL image
