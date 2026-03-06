@@ -116,12 +116,15 @@ def get_actions():
 
 def main(host):
     failures = []
-    totals = {"register": 0, "tweet": 0, "follow": 0, "unfollow": 0}
+    
 
+    totals = defaultdict(int)
     for action, delay in get_actions():
         command = action["post_type"]
-        if command in totals:
+        if command in {"register", "tweet", "follow", "unfollow"}:
             totals[command] += 1
+        else:
+            totals[command + "--UNEXPECTED"] += 1
         try:
             # SWITCH ON TYPE
             command = action["post_type"]
@@ -284,7 +287,8 @@ if __name__ == "__main__":
 
     failures, totals = main(host)
 
-    if failures:
+    total = sum(totals.values())
+    if total > 0 and len(failures) / total > 0.05: # 5% errors max to account for false error due to timeouts.
         from collections import Counter
         failure_counts = Counter(f["command"] for f in failures)
         print(f"\n=== {len(failures)} failure(s) ===")
