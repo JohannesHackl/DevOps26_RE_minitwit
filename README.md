@@ -157,3 +157,16 @@ Our project utilizes **GitHub Actions** for an automated pipeline:
 └── Vagrantfile      # Infrastructure as Code (IaC) configuration
 └── develop.sh    # for local developemnt
 ```
+
+## GitHub Actions Secrets Configuration
+
+| Secret Name | Category | Description                                                                                                                                                 |
+| :--- | :--- |:------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`DOCKERHUB_USERNAME`** | Docker Hub | Your Docker Hub username.                                                                                                                                   |
+| **`DOCKERHUB_TOKEN`** | Docker Hub | A dedicated Docker Hub Access Token used for authentication.                                                                                                |
+| **`DO_HOST`** | Production | The IP address of your production DigitalOcean Droplet (triggered by the `main` branch).                                                                    |
+| **`DO_DB`** | Production | The IP address of your production database server.                                                                                                          |
+| **`DO_HOST_STAGE`** | Staging | The IP address of your staging DigitalOcean Droplet (triggered by pull requests or test branches).                                                          |
+| **`DO_DB_STAGE`** | Staging | The IP address of your staging database server.                                                                                                             |
+| **`DO_USER`** | SSH Auth | The SSH username used to log into the DigitalOcean servers (e.g., `root`). This is shared between production and staging environments.                      |
+| **`DO_SSH_KEY`** | SSH Auth | The SSH Private Key for server authentication. Make sure to paste the entire key block, including `-----BEGIN OPENSSH PRIVATE KEY-----` and the end marker.  This is shared between production and staging environments.|
