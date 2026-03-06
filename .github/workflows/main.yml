@@ -2,9 +2,11 @@ name: CI/CD Pipeline
 
 on:
   push:
+    # Only trigger on push to main branch
     branches:
-      - '**'
+      - main
   pull_request:
+    # Only trigger on PRs targeting main branch
     branches:
       - main
 
@@ -73,12 +75,12 @@ jobs:
 
   deploy:
     needs: build-and-push
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
+          # Automatically uses STAGE variables during a PR, and prod variables during push to main
           DB_ADDR: ${{ github.ref == 'refs/heads/main' && secrets.DO_DB || secrets.DO_DB_STAGE }}
           DOCKER_IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
         with:
