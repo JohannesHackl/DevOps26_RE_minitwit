@@ -118,14 +118,14 @@
 
 - name: Log in to Docker Hub
   community.docker.docker_login:
-    username: run # username for dockerhub
-    password: "{{ dockerhub_token }}" # docker token for docker hub
+    username: "{{ DOCKERHUB_USERNAME }}" # username for dockerhub
+    password: "{{ DOCKERHUB_TOKEN }}" # docker token for docker hub
   delegate_to: localhost  # runs on local machine
   become: no 
 
 - name: Build DB image
   community.docker.docker_image:
-    name: kuba402/minitwit-db:latest
+    name: "{{DOCKERHUB_USERNAME}}/minitwit-db:latest"
     build:
       path: "{{ playbook_dir }}/../"
       dockerfile: docker/Dockerfile-db
@@ -138,12 +138,12 @@
 
 - name: Build APP image
   community.docker.docker_image:
-    name: kuba402/minitwit:latest
+    name: "{{DOCKERHUB_USERNAME}}/minitwit:latest"
     build:
       path: "{{ playbook_dir }}/../"
       dockerfile: docker/Dockerfile-app
       args:
-        GO_VERSION: "1.24.0"
+        GO_VERSION: "1.25.0"
     source: build
     push: yes
   delegate_to: localhost  # builds and pushes from local machine
