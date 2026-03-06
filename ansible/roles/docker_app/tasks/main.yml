@@ -53,31 +53,21 @@
   ignore_errors: yes
   no_log: true
 
-- block:
-  - name: Install Docker dependencies
-    apt:
-      name:
-        - docker.io
-        - docker-compose
-        - containerd
-        - python3-pip
-      state: present
-      lock_timeout: 120
-    no_log: true
+- name: Install Docker dependencies
+  apt:
+    name:
+      - docker.io
+      - docker-compose
+      - containerd
+      - python3-pip
+    state: present
+    lock_timeout: 120
+  no_log: true
 
-  - name: Install Docker Python SDK
-    pip:
-      name: docker
-    no_log: true
-  
-  rescue:
-    - name: Show failure info
-      debug:
-        msg: "Docker service failed to start: {{ ansible_failed_result }}"
-
-    - name: Fail with message
-      fail:
-        msg: "Docker could not be started, check logs above"
+- name: Install Docker Python SDK
+  pip:
+    name: docker
+  no_log: true
 
 - name: Create docker cli-plugins directory
   file:
@@ -92,6 +82,13 @@
     dest: /usr/libexec/docker/cli-plugins/docker-compose
     mode: '0755'
   no_log: true
+
+- name: Install Docker Buildx plugin
+  get_url:
+    url: https://github.com/docker/buildx/releases/download/v0.31.1/buildx-v0.31.1.linux-amd64
+    dest: /usr/libexec/docker/cli-plugins/docker-buildx
+    mode: '0755'
+  #no_log: true
 
 ##################################################
 # Configure containerd properly
@@ -113,6 +110,45 @@
   copy:
     content: "{{ containerd_config.stdout }}"
     dest: /etc/containerd/config.toml
+  no_log: true
+
+##################################################
+# Create image in dockerhub
+##################################################
+
+- name: Log in to Docker Hub
+  community.docker.docker_login:
+    username: run # username for dockerhub
+    password: "{{ dockerhub_token }}" # docker token for docker hub
+  delegate_to: localhost  # runs on local machine
+  become: no 
+
+- name: Build DB image
+  community.docker.docker_image:
+    name: kuba402/minitwit-db:latest
+    build:
+      path: "{{ playbook_dir }}/../"
+      dockerfile: docker/Dockerfile-db
+    source: build
+    push: yes
+  delegate_to: localhost  # builds and pushes from local machine
+  become: no
+  when: inventory_hostname == "dbserver"
+  no_log: true
+
+- name: Build APP image
+  community.docker.docker_image:
+    name: kuba402/minitwit:latest
+    build:
+      path: "{{ playbook_dir }}/../"
+      dockerfile: docker/Dockerfile-app
+      args:
+        GO_VERSION: "1.24.0"
+    source: build
+    push: yes
+  delegate_to: localhost  # builds and pushes from local machine
+  become: no
+  when: inventory_hostname == "webserver"
   no_log: true
 
 ##################################################
@@ -206,7 +242,7 @@
     state: present
     build: always
   when: inventory_hostname == "dbserver"
-  #no_log: true
+  no_log: true
 
 ##################################################
 # App playbook tasks
@@ -237,6 +273,5 @@
     files:
       - docker-compose-app.yaml
     state: present
-    build: always
   when: inventory_hostname == "webserver"
-  #no_log: true
+  no_log: true

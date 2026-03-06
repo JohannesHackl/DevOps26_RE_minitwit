@@ -34,11 +34,11 @@ minitwit
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Private files 
+/ansible/my_credentials.yml
+
 # Python
 __pychache__/
 *.pyc
 *.pyo
 *.pyd
-
-# GitHub workflows
-.github/

@@ -22,13 +22,6 @@ Vagrant.configure("2") do |config|
     end
 
     db.vm.hostname = "dbserver"
-
-    db.vm.provision "ansible" do |ansible|
-      ansible.playbook = "ansible/site.yml"
-      #ansible.inventory_path = "ansible/inventory.ini"
-      ansible.limit = "dbserver"
-      ansible.verbose = "v"
-    end
   end 
 
   # --- Web Server with Doscker ---
@@ -45,11 +38,11 @@ Vagrant.configure("2") do |config|
 
     web.vm.hostname = "webserver"
 
+    # Ansible runs ONCE here after both VMs are up
     web.vm.provision "ansible" do |ansible|
-      ansible.playbook = "ansible/site.yml"
-      #ansible.inventory_path = "ansible/inventory.ini"
-      ansible.limit = "webserver"
-      ansible.verbose = "v"
+      ansible.playbook       = "ansible/site.yml"
+      ansible.limit          = "all"
+      ansible.verbose        = "v"
     end
   end
 end
