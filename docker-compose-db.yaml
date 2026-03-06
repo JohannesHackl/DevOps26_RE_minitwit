@@ -1,8 +1,9 @@
 services:
   db:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile-db
+    image: ${DOCKER_IMAGE:-kuba402/minitwit-db:latest}
+    # build:
+    #   context: .
+    #   dockerfile: docker/Dockerfile-db
     environment:
       POSTGRES_USER: minitwit
       POSTGRES_PASSWORD: minitwit
