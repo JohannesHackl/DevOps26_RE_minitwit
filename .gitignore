@@ -35,7 +35,8 @@ minitwit
 *.out
 
 # Private files 
-/ansible/my_credentials.yml
+ansible/credentials.yml
+
 
 # Python
 __pychache__/
